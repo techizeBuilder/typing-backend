@@ -1,9 +1,9 @@
-import { Controller, Post, Body, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Body, UnauthorizedException, HttpCode } from '@nestjs/common';
 import { AuthService } from './auth.service';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(private authService: AuthService) { }
 
   @Post('signup')
   async signup(@Body() userData: any) {
@@ -11,11 +11,25 @@ export class AuthController {
   }
 
   @Post('login')
+  @HttpCode(200) // Return 200 instead of 201
   async login(@Body() loginData: any) {
-    const user = await this.authService.validateUser(loginData.username, loginData.password);
+    // Support both username and phone login
+    const identifier = loginData.username || loginData.phone;
+    const user = await this.authService.validateUser(identifier, loginData.password);
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    return this.authService.login(user);
+    const result = await this.authService.login(user);
+    return {
+      success: true,
+      message: 'Login successful',
+      access_token: result.access_token,
+      user: {
+        id: user.user_id,
+        name: user.name,
+        role: user.role,
+        phone: user.phone
+      }
+    };
   }
 }

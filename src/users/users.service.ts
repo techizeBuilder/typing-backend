@@ -29,8 +29,12 @@ export class UsersService {
     return users.map(u => this.applyDynamicStatus(u) as User);
   }
 
-  async findOne(userId: string): Promise<User | null> {
-    const user = await this.usersRepository.findOneBy({ user_id: userId });
+  async findOne(identifier: string): Promise<User | null> {
+    // Try to find by user_id first, then by phone
+    let user = await this.usersRepository.findOneBy({ user_id: identifier });
+    if (!user) {
+      user = await this.usersRepository.findOneBy({ phone: identifier });
+    }
     return this.applyDynamicStatus(user);
   }
 

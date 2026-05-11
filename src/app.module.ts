@@ -40,10 +40,11 @@ const AppDataSource = new DataSource({
     }),
     TypeOrmModule.forRoot({
       type: 'postgres',
-      host: 'localhost',
-      port: 5432,
-      username: 'postgres',
-      database: 'typing_master',
+      host: process.env.DB_HOST || 'localhost',
+      port: parseInt(process.env.DB_PORT || '5432', 10),
+      username: process.env.DB_USERNAME || 'postgres',
+      password: process.env.DB_PASSWORD || '',
+      database: process.env.DB_DATABASE || 'typing_master',
       entities: [User, Exam, Chapter, Result, ResultPattern, Message, FlashBanner],
       synchronize: false,  // TURN OFF AUTO-SYNC
       logging: false,
