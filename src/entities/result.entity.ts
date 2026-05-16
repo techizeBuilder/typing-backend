@@ -60,6 +60,9 @@ export class Result {
   @Column({ nullable: true })
   mode: string;
 
+  @Column({ nullable: true })
+  test_type: string;
+
   @CreateDateColumn()
   date_taken: Date;
 }
