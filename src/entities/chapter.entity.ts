@@ -27,6 +27,12 @@ export class Chapter {
   @JoinColumn({ name: 'exam_id' })
   exam: any;
 
+  @Column({ type: 'simple-array', nullable: true })
+  exam_ids: string[];
+
+  // Populated at runtime from exam_ids (not a DB column)
+  exams?: any[];
+
   @Column({ type: 'date' })
   test_date: Date;
 

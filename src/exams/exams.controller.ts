@@ -38,8 +38,8 @@ export class ExamsController {
   }))
   create(@Body() examData: any, @UploadedFile() file: Express.Multer.File): Promise<Exam> {
     if (file) {
-      const apiBaseUrl = this.configService.get<string>('API_BASE_URL') || 'http://localhost:5000';
-      examData.image_url = `${apiBaseUrl}/uploads/exams/${file.filename}`;
+      // Store only relative path so the frontend can prepend the correct base URL
+      examData.image_url = `/uploads/exams/${file.filename}`;
     }
     // Convert stringified numbers back (FormData sends everything as strings)
     const numFields = ['test_time_minutes', 'font_size_user_screen', 'font_size_test_screen', 'max_words_strokes', 'no_of_words_strokes'];
@@ -85,8 +85,7 @@ export class ExamsController {
   }))
   async update(@Param('id') id: string, @Body() examData: any, @UploadedFile() file: Express.Multer.File): Promise<any> {
     if (file) {
-      const apiBaseUrl = this.configService.get<string>('API_BASE_URL') || 'http://localhost:5000';
-      examData.image_url = `${apiBaseUrl}/uploads/exams/${file.filename}`;
+      examData.image_url = `/uploads/exams/${file.filename}`;
     }
     
     // Convert stringified numbers back

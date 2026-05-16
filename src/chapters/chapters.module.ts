@@ -4,10 +4,11 @@ import { MulterModule } from '@nestjs/platform-express';
 import { ChaptersController } from './chapters.controller';
 import { ChaptersService } from './chapters.service';
 import { Chapter } from '../entities/chapter.entity';
+import { Exam } from '../entities/exam.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Chapter]),
+    TypeOrmModule.forFeature([Chapter, Exam]),
     MulterModule.register({}),
   ],
   controllers: [ChaptersController],
