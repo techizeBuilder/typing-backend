@@ -62,7 +62,10 @@ export class Exam {
     enum: FontGroup,
     default: FontGroup.ENGLISH_TYPING,
   })
-  font_group: FontGroup; // FONT GROUP
+  font_group: FontGroup; // FONT GROUP (legacy single — kept for backward compat)
+
+  @Column({ type: 'simple-json', nullable: true })
+  font_groups: string[]; // FONT GROUP multi-select
 
   @Column({
     type: 'enum',
