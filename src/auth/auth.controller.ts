@@ -25,9 +25,10 @@ export class AuthController {
       message: 'Login successful',
       access_token: result.access_token,
       user: {
-        id: user.id,            // UUID — used by frontend to save/fetch results by student_id
-        user_id: user.user_id,  // human-readable login id (kept separately for display)
+        id: user.id,
+        user_id: user.user_id,
         name: user.name,
+        roll_no: user.roll_no,
         role: user.role,
         phone: user.phone
       }

@@ -58,6 +58,19 @@ export class ExamsController {
        }
     });
 
+    // Parse font_groups JSON string from FormData
+    if (examData.font_groups) {
+      try {
+        examData.font_groups = typeof examData.font_groups === 'string'
+          ? JSON.parse(examData.font_groups)
+          : examData.font_groups;
+      } catch { examData.font_groups = [examData.font_groups]; }
+    }
+    // Keep legacy font_group in sync with first selected group
+    if (Array.isArray(examData.font_groups) && examData.font_groups.length > 0) {
+      examData.font_group = examData.font_groups[0];
+    }
+
     // Fix foreign key relation logic for TypeORM mapping
     const patternId = examData.result_pattern || examData.result_pattern_id;
     if (patternId && typeof patternId === 'string' && patternId.trim() !== '') {
@@ -67,7 +80,7 @@ export class ExamsController {
     }
     delete examData.result_pattern_id; // remove unmapped simple column to avoid crash
     delete examData.image; // remove the raw image file string if it ended up in body
-    
+
     return this.examsService.create(examData);
   }
 
@@ -105,6 +118,18 @@ export class ExamsController {
        }
     });
 
+    // Parse font_groups JSON string from FormData
+    if (examData.font_groups) {
+      try {
+        examData.font_groups = typeof examData.font_groups === 'string'
+          ? JSON.parse(examData.font_groups)
+          : examData.font_groups;
+      } catch { examData.font_groups = [examData.font_groups]; }
+    }
+    if (Array.isArray(examData.font_groups) && examData.font_groups.length > 0) {
+      examData.font_group = examData.font_groups[0];
+    }
+
     // Fix foreign key relation logic for TypeORM mapping
     const patternId = examData.result_pattern || examData.result_pattern_id;
     if (patternId && typeof patternId === 'string' && patternId.trim() !== '') {
@@ -114,7 +139,6 @@ export class ExamsController {
     }
     delete examData.result_pattern_id; // remove unmapped simple column to avoid crash
     delete examData.image; // remove the raw image file string if it ended up in body
-
 
     return this.examsService.update(id, examData);
   }
