@@ -15,11 +15,15 @@ export class AuthService {
     const user = await this.usersService.findOne(username);
     if (user && (await bcrypt.compare(pass, user.password_hash))) {
       
-      // Check for allowed time slots 
+      // Check for allowed time slots (numeric comparison to avoid string edge-cases)
       if (user.role === 'Student' && user.allowed_login_time_start && user.allowed_login_time_end) {
         const now = new Date();
-        const currentTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
-        if (currentTime < user.allowed_login_time_start || currentTime > user.allowed_login_time_end) {
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+        const [startH, startM] = user.allowed_login_time_start.split(':').map(Number);
+        const [endH, endM] = user.allowed_login_time_end.split(':').map(Number);
+        const startMinutes = startH * 60 + startM;
+        const endMinutes = endH * 60 + endM;
+        if (currentMinutes < startMinutes || currentMinutes > endMinutes) {
             throw new UnauthorizedException(`Login blocked. Please login between ${user.allowed_login_time_start} and ${user.allowed_login_time_end}`);
         }
       }
