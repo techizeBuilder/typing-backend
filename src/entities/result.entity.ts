@@ -7,9 +7,12 @@ export class Result {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  // We map IDs explicitly or use relationships. Sticking to IDs for direct logic simplicity.
   @Column('uuid')
   student_id: string;
+
+  @ManyToOne(() => User, { nullable: true, eager: false })
+  @JoinColumn({ name: 'student_id' })
+  user: User;
 
   @Column({ type: 'uuid', nullable: true })
   chapter_id: string;
