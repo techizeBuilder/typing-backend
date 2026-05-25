@@ -23,21 +23,13 @@ export class ResultPattern {
   @Column({ unique: true })
   name: string; // "Result Name" in screenshot
 
-  @Column({
-    type: 'enum',
-    enum: SpeedCountType,
-    default: SpeedCountType.WORDS,
-  })
+  @Column({ default: SpeedCountType.WORDS })
   speed_count: SpeedCountType;
 
   @Column({ default: false })
   half_mistake_enabled: boolean;
 
-  @Column({
-    type: 'enum',
-    enum: PenaltyType,
-    default: PenaltyType.WORD,
-  })
+  @Column({ default: PenaltyType.WORD })
   penalty_type: PenaltyType;
 
   @Column({ type: 'float', default: 1 })
@@ -46,11 +38,7 @@ export class ResultPattern {
   @Column({ default: false })
   count_right_words_only: boolean;
 
-  @Column({
-    type: 'enum',
-    enum: QualifyType,
-    default: QualifyType.NWPM,
-  })
+  @Column({ default: QualifyType.NWPM })
   qualify_on: QualifyType;
 
   @Column({ type: 'float', default: 35 })
@@ -91,6 +79,9 @@ export class ResultPattern {
 
   @Column({ default: true })
   show_ignorable_mistakes: boolean;
+
+  @Column({ default: true })
+  count_omissions_as_errors: boolean;
 
   @CreateDateColumn()
   created_at: Date;
