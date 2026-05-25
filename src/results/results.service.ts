@@ -56,7 +56,7 @@ export class ResultsService implements OnModuleInit {
 
   findAll(): Promise<Result[]> {
     return this.resultsRepository.find({
-      relations: ['exam', 'user'],
+      relations: ['exam', 'user', 'chapter'],
       order: { date_taken: 'DESC' },
     });
   }

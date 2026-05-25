@@ -1,6 +1,7 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Unique, ManyToOne, JoinColumn } from 'typeorm';
 import { Exam } from './exam.entity';
 import { User } from './user.entity';
+import { Chapter } from './chapter.entity';
 
 @Entity('results')
 export class Result {
@@ -16,6 +17,10 @@ export class Result {
 
   @Column({ type: 'uuid', nullable: true })
   chapter_id: string;
+
+  @ManyToOne(() => Chapter, { nullable: true, eager: false })
+  @JoinColumn({ name: 'chapter_id' })
+  chapter: Chapter;
 
   @ManyToOne(() => Exam)
   @JoinColumn({ name: 'exam_id' })

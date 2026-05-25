@@ -39,6 +39,7 @@ export class ResultPatternsService implements OnModuleInit {
           show_accuracy BOOLEAN NOT NULL DEFAULT true,
           show_penalty_words BOOLEAN NOT NULL DEFAULT true,
           show_ignorable_mistakes BOOLEAN NOT NULL DEFAULT true,
+          count_omissions_as_errors BOOLEAN NOT NULL DEFAULT true,
           created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
         )
@@ -46,6 +47,15 @@ export class ResultPatternsService implements OnModuleInit {
       this.logger.log('Ensured result_patterns table exists.');
     } catch (err) {
       this.logger.warn(`Could not ensure result_patterns table: ${err?.message || err}`);
+    }
+
+    // Add count_omissions_as_errors column for existing tables that predate this feature
+    try {
+      await this.patternRepository.query(
+        `ALTER TABLE result_patterns ADD COLUMN IF NOT EXISTS count_omissions_as_errors BOOLEAN NOT NULL DEFAULT true`,
+      );
+    } catch (err) {
+      this.logger.warn(`Could not add count_omissions_as_errors column: ${err?.message || err}`);
     }
   }
 

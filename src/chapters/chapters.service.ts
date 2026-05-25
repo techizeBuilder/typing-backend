@@ -47,6 +47,10 @@ export class ChaptersService implements OnModuleInit {
     return chapters;
   }
 
+  async findOne(id: string): Promise<Chapter | null> {
+    return this.chaptersRepository.findOne({ where: { id } });
+  }
+
   async findAll(): Promise<Chapter[]> {
     const chapters = await this.chaptersRepository.find();
     return this.attachExams(chapters);
