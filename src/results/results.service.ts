@@ -135,27 +135,18 @@ export class ResultsService implements OnModuleInit {
   }
 
   async getLeaderboard(): Promise<any[]> {
-    // Fetch all Live Test results ordered by NWPM DESC
-    const rawResults = await this.resultsRepository.createQueryBuilder('result')
+    // Return all Live Test results with exam name; frontend handles dedup + filter + top-10
+    return this.resultsRepository.createQueryBuilder('result')
       .select('users.name', 'username')
       .addSelect('result.nwpm', 'max_nwpm')
+      .addSelect('result.gwpm', 'max_gwpm')
       .addSelect('result.accuracy', 'max_accuracy')
+      .addSelect('exams.name', 'exam_name')
       .innerJoin('users', 'users', 'users.id = result.student_id')
       .innerJoin('chapters', 'chapters', 'chapters.id = result.chapter_id')
+      .leftJoin('exams', 'exams', 'exams.id = result.exam_id')
       .where('chapters.test_type = :testType', { testType: 'Live Test' })
       .orderBy('result.nwpm', 'DESC')
       .getRawMany();
-
-    // Deduplicate by user to only keep their best score
-    const uniqueUsers = new Set();
-    const leaderboard: any[] = [];
-    for (const row of rawResults) {
-      if (!uniqueUsers.has(row.username)) {
-        uniqueUsers.add(row.username);
-        leaderboard.push(row);
-        if (leaderboard.length >= 10) break;
-      }
-    }
-    return leaderboard;
   }
 }

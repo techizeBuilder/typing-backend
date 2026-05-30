@@ -53,12 +53,8 @@ export class User {
   @Column()
   password_hash: string;
 
-  @Column({
-    type: 'enum',
-    enum: UserCategory,
-    nullable: true,
-  })
-  category: UserCategory;
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  category: string;
 
   @Column({ nullable: true })
   designation: string;
