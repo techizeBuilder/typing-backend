@@ -1,15 +1,33 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User, UserStatus } from '../entities/user.entity';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
-export class UsersService {
+export class UsersService implements OnModuleInit {
   constructor(
     @InjectRepository(User)
     private usersRepository: Repository<User>,
   ) {}
+
+  async onModuleInit() {
+    // Run this migration as a background task so it never blocks NestJS startup.
+    // Awaiting ALTER TABLE inside onModuleInit prevents app.listen() from being
+    // called if the users table has an active lock (e.g. after a server restart
+    // with in-flight queries), which causes all frontend requests to fail with
+    // "Network Error". setImmediate defers to the next event loop tick so the
+    // HTTP server starts immediately while the migration runs in parallel.
+    setImmediate(async () => {
+      try {
+        await this.usersRepository.query(
+          `ALTER TABLE users ALTER COLUMN category TYPE varchar(500) USING category::text`,
+        );
+      } catch {
+        // Already varchar, lock timeout, or migration already applied — safe to ignore.
+      }
+    });
+  }
 
   private applyDynamicStatus(user: User | null): User | null {
     if (!user) return user;
@@ -52,6 +70,11 @@ export class UsersService {
     if (userData.password_hash) {
       userData.password_hash = await bcrypt.hash(userData.password_hash, 10);
     }
-    return this.usersRepository.update(id, userData);
+    try {
+      return await this.usersRepository.update(id, userData);
+    } catch (err) {
+      const detail = err?.message || String(err);
+      throw new InternalServerErrorException(`Update failed: ${detail}`);
+    }
   }
 }

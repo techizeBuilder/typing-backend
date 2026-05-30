@@ -65,6 +65,7 @@ export class AuthService {
       ...rest,
       user_id: username,
       password_hash: hashedPassword,
+      status: 'Active',
     });
 
     const { password_hash, ...result } = user;
