@@ -49,7 +49,9 @@ export class ResultsService implements OnModuleInit {
     }
     return this.resultsRepository.find({
       where: { student_id: uuid },
-      relations: ['exam'],
+      // 'chapter' is loaded so the result screen can show the full uploaded passage
+      // (content_text) as the "Original Passage", not just the trimmed reference_words.
+      relations: ['exam', 'chapter'],
       order: { date_taken: 'DESC' },
     });
   }
