@@ -19,6 +19,7 @@ import { FlashBanner } from './entities/flash_banner.entity';
 import { ResultPatternsModule } from './result-patterns/result-patterns.module';
 import { MessagesModule } from './messages/messages.module';
 import { FlashBannersModule } from './flash-banners/flash-banners.module';
+import { SchemaSyncService } from './database/schema-sync.service';
 
 // Create DataSource exactly like the working test
 const AppDataSource = new DataSource({
@@ -59,6 +60,6 @@ const AppDataSource = new DataSource({
     FlashBannersModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, SchemaSyncService],
 })
 export class AppModule { }
