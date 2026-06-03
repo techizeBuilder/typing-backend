@@ -45,6 +45,16 @@ export class Chapter {
   })
   font_group: FontGroup;
 
+  // Typing language for the chapter — primarily used for Steno chapters so the
+  // student types/views the passage in the correct script. 'English' | 'Hindi'.
+  @Column({ type: 'varchar', nullable: true })
+  language_type: string;
+
+  // Hindi font standard, used when language_type === 'Hindi' (Steno Hindi):
+  // 'Mangal' (Unicode) | 'KrutiDev' | 'RemingtonGail'.
+  @Column({ type: 'varchar', nullable: true })
+  hindi_font_type: string;
+
   @Column({ type: 'text' })
   content_text: string;
 
