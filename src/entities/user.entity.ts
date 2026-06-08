@@ -96,6 +96,15 @@ export class User {
   @Column({ type: 'int', nullable: true })
   live_tests_limit: number;
 
+  // Number of Pre-load (offline practice) typing tests unlocked per student.
+  // null → frontend default of 10. Admin can raise/lower per student.
+  @Column({ type: 'int', nullable: true })
+  preload_tests_limit: number;
+
+  // Number of Steno tests unlocked per student. null → frontend default of 10.
+  @Column({ type: 'int', nullable: true })
+  steno_tests_limit: number;
+
   @CreateDateColumn()
   created_at: Date;
 

@@ -23,6 +23,10 @@ export class SchemaSyncService implements OnApplicationBootstrap {
       // Hindi-Steno font configuration (chapters)
       `ALTER TABLE "chapters" ADD COLUMN IF NOT EXISTS "language_type" varchar`,
       `ALTER TABLE "chapters" ADD COLUMN IF NOT EXISTS "hindi_font_type" varchar`,
+      // Per-student test limits (users)
+      `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "live_tests_limit" integer`,
+      `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "preload_tests_limit" integer`,
+      `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "steno_tests_limit" integer`,
     ];
 
     for (const sql of statements) {
@@ -32,6 +36,6 @@ export class SchemaSyncService implements OnApplicationBootstrap {
         this.logger.warn(`Schema sync statement failed (continuing): ${sql} — ${err?.message}`);
       }
     }
-    this.logger.log('Schema sync complete — chapter font columns ensured.');
+    this.logger.log('Schema sync complete — chapter font + user limit columns ensured.');
   }
 }
