@@ -136,19 +136,31 @@ export class ResultsService implements OnModuleInit {
     };
   }
 
-  async getLeaderboard(): Promise<any[]> {
-    // Return all Live Test results with exam name; frontend handles dedup + filter + top-10
-    return this.resultsRepository.createQueryBuilder('result')
+  async getLeaderboard(period?: string): Promise<any[]> {
+    // Return all Live Test results with exam name; frontend handles dedup + filter + top-10.
+    // period === 'today' restricts to results recorded today (used by the admin
+    // "Top Performer of the Day" leaderboard).
+    const qb = this.resultsRepository.createQueryBuilder('result')
       .select('users.name', 'username')
+      .addSelect('users.user_id', 'user_id')
       .addSelect('result.nwpm', 'max_nwpm')
       .addSelect('result.gwpm', 'max_gwpm')
       .addSelect('result.accuracy', 'max_accuracy')
       .addSelect('exams.name', 'exam_name')
+      .addSelect('result.date_taken', 'date_taken')
       .innerJoin('users', 'users', 'users.id = result.student_id')
       .innerJoin('chapters', 'chapters', 'chapters.id = result.chapter_id')
       .leftJoin('exams', 'exams', 'exams.id = result.exam_id')
-      .where('chapters.test_type = :testType', { testType: 'Live Test' })
-      .orderBy('result.nwpm', 'DESC')
-      .getRawMany();
+      .where('chapters.test_type = :testType', { testType: 'Live Test' });
+
+    if (period === 'today') {
+      const start = new Date();
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 1);
+      qb.andWhere('result.date_taken >= :start AND result.date_taken < :end', { start, end });
+    }
+
+    return qb.orderBy('result.nwpm', 'DESC').getRawMany();
   }
 }
