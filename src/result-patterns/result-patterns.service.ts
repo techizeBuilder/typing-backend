@@ -28,6 +28,7 @@ export class ResultPatternsService implements OnModuleInit {
           qualify_on VARCHAR NOT NULL DEFAULT 'NWPM',
           required_speed FLOAT NOT NULL DEFAULT 35,
           required_accuracy FLOAT NOT NULL DEFAULT 95,
+          ignorable_mistakes_percent FLOAT NOT NULL DEFAULT 0,
           show_half_mistakes BOOLEAN NOT NULL DEFAULT true,
           show_full_mistakes BOOLEAN NOT NULL DEFAULT true,
           show_total_strokes BOOLEAN NOT NULL DEFAULT true,
@@ -56,6 +57,15 @@ export class ResultPatternsService implements OnModuleInit {
       );
     } catch (err) {
       this.logger.warn(`Could not add count_omissions_as_errors column: ${err?.message || err}`);
+    }
+
+    // Add ignorable_mistakes_percent column for existing tables that predate this feature
+    try {
+      await this.patternRepository.query(
+        `ALTER TABLE result_patterns ADD COLUMN IF NOT EXISTS ignorable_mistakes_percent FLOAT NOT NULL DEFAULT 0`,
+      );
+    } catch (err) {
+      this.logger.warn(`Could not add ignorable_mistakes_percent column: ${err?.message || err}`);
     }
   }
 

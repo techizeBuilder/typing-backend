@@ -47,6 +47,11 @@ export class ResultPattern {
   @Column({ type: 'float', default: 95 })
   required_accuracy: number;
 
+  // Max mistake rate (%) tolerated before the attempt is marked unqualified.
+  // 0 = not enforced (qualification depends only on speed + accuracy).
+  @Column({ type: 'float', default: 0 })
+  ignorable_mistakes_percent: number;
+
   @Column({ default: true })
   show_half_mistakes: boolean;
 
