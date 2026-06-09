@@ -47,10 +47,19 @@ export class ResultPattern {
   @Column({ type: 'float', default: 95 })
   required_accuracy: number;
 
-  // Max mistake rate (%) tolerated before the attempt is marked unqualified.
-  // 0 = not enforced (qualification depends only on speed + accuracy).
+  // When enabled, mistakes up to (ignorable_mistakes_percent)% of the total words
+  // typed are ignored (no penalty). Every mistake BEYOND that allowance deducts
+  // (ignorable_penalty_words_per_mistake) words from the net-speed calculation.
+  @Column({ default: false })
+  ignorable_mistakes_enabled: boolean;
+
+  // Ignorable allowance as a percentage (0–100) of the total words typed.
   @Column({ type: 'float', default: 0 })
   ignorable_mistakes_percent: number;
+
+  // Words deducted from net speed for each mistake beyond the ignorable allowance.
+  @Column({ type: 'float', default: 10 })
+  ignorable_penalty_words_per_mistake: number;
 
   @Column({ default: true })
   show_half_mistakes: boolean;
