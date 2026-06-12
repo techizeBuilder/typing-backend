@@ -14,8 +14,9 @@ export class Chapter {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'int' })
-  chapter_no: number;
+  // Stored as text so chapter numbers may be alphanumeric (e.g. A-1, CH-01, Unit-5).
+  @Column({ type: 'varchar' })
+  chapter_no: string;
 
   @Column({ nullable: true })
   name: string;

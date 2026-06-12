@@ -80,14 +80,14 @@ async function seed() {
   // Seed Chapters
   const chapters = [
     {
-      chapter_no: 1,
+      chapter_no: '1',
       name: 'Chapter 1: Basics',
       test_date: new Date(),
       font_group: FontGroup.ENGLISH_TYPING,
       content_text: 'The quick brown fox jumps over the lazy dog. Typing is a skill that improves with practice and consistency. Focus on accuracy before speed.',
     },
     {
-      chapter_no: 2,
+      chapter_no: '2',
       name: 'Chapter 2: Intermediate',
       test_date: new Date(),
       font_group: FontGroup.ENGLISH_TYPING,

@@ -25,6 +25,16 @@ export class ChaptersService implements OnModuleInit {
     } catch (err) {
       this.logger.warn(`Could not ensure chapters.exam_ids column: ${err?.message || err}`);
     }
+
+    // Chapter numbers may be alphanumeric (e.g. A-1, CH-01). Widen the legacy
+    // integer column to varchar in place; existing numeric values cast cleanly.
+    try {
+      await this.chaptersRepository.query(
+        `ALTER TABLE chapters ALTER COLUMN chapter_no TYPE VARCHAR USING chapter_no::VARCHAR`,
+      );
+    } catch (err) {
+      this.logger.warn(`Could not widen chapters.chapter_no to varchar: ${err?.message || err}`);
+    }
   }
 
   private async attachExams(chapters: Chapter[]): Promise<Chapter[]> {
