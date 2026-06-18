@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Result } from '../entities/result.entity';
 import { User } from '../entities/user.entity';
+import { SettingsService } from '../settings/settings.service';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -15,6 +16,7 @@ export class ResultsService implements OnModuleInit {
     private resultsRepository: Repository<Result>,
     @InjectRepository(User)
     private usersRepository: Repository<User>,
+    private readonly settingsService: SettingsService,
   ) {}
 
   async onModuleInit() {
@@ -154,11 +156,19 @@ export class ResultsService implements OnModuleInit {
       .where('chapters.test_type = :testType', { testType: 'Live Test' });
 
     if (period === 'today') {
+      // Admin "Top Performer of the Day" — live, un-gated view of today's results.
       const start = new Date();
       start.setHours(0, 0, 0, 0);
       const end = new Date(start);
       end.setDate(end.getDate() + 1);
       qb.andWhere('result.date_taken >= :start AND result.date_taken < :end', { start, end });
+    } else {
+      // Student-facing leaderboard: rankings are PUBLISHED in daily batches at the
+      // admin-configured rank-update time (default 9:00 PM). Results recorded after
+      // the most recent update time stay pending until the next one passes, so the
+      // ranking "updates automatically" each day at the configured time.
+      const cutoff = await this.settingsService.getLiveRankPublishedCutoff();
+      qb.andWhere('result.date_taken <= :cutoff', { cutoff });
     }
 
     return qb.orderBy('result.nwpm', 'DESC').getRawMany();
