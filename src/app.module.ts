@@ -19,6 +19,8 @@ import { FlashBanner } from './entities/flash_banner.entity';
 import { ResultPatternsModule } from './result-patterns/result-patterns.module';
 import { MessagesModule } from './messages/messages.module';
 import { FlashBannersModule } from './flash-banners/flash-banners.module';
+import { SettingsModule } from './settings/settings.module';
+import { AppSetting } from './entities/app_setting.entity';
 import { SchemaSyncService } from './database/schema-sync.service';
 
 // Create DataSource exactly like the working test
@@ -46,7 +48,7 @@ const AppDataSource = new DataSource({
       username: process.env.DB_USERNAME || 'postgres',
       password: process.env.DB_PASSWORD || '',
       database: process.env.DB_DATABASE || 'typing_master',
-      entities: [User, Exam, Chapter, Result, ResultPattern, Message, FlashBanner],
+      entities: [User, Exam, Chapter, Result, ResultPattern, Message, FlashBanner, AppSetting],
       synchronize: false,  // TURN OFF AUTO-SYNC
       logging: false,
     }),
@@ -58,6 +60,7 @@ const AppDataSource = new DataSource({
     ResultPatternsModule,
     MessagesModule,
     FlashBannersModule,
+    SettingsModule,
   ],
   controllers: [AppController],
   providers: [AppService, SchemaSyncService],
