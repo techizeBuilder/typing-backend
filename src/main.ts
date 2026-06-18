@@ -12,15 +12,26 @@ async function bootstrap() {
   // Express runs middleware in registration order — if static assets come first,
   // they send the response before CORS headers are added, and the browser blocks
   // cross-origin audio/image requests silently.
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:5173',
+    'http://localhost:4173',
+    'https://typing.techizebuilder.com',
+    'http://typing.techizebuilder.com',
+  ];
   app.enableCors({
-    origin: [
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://localhost:5173',
-      'http://localhost:4173',
-      'https://typing.techizebuilder.com',
-      'http://typing.techizebuilder.com'
-    ],
+    // Function form so we can also allow the packaged Electron desktop app.
+    // It loads its UI from a file:// URL, so its requests arrive with either no
+    // Origin header (origin === undefined) or the opaque Origin "null" — neither
+    // of which can be expressed in a plain whitelist array.
+    origin: (origin, callback) => {
+      if (!origin || origin === 'null' || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`Origin ${origin} not allowed by CORS`));
+      }
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
     credentials: true,
