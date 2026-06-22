@@ -9,8 +9,12 @@ export class ResultsController {
   constructor(private readonly resultsService: ResultsService) {}
 
   @Get('leaderboard')
-  getLeaderboard(@Query('period') period?: string): Promise<any[]> {
-    return this.resultsService.getLeaderboard(period);
+  getLeaderboard(
+    @Query('period') period?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ): Promise<any[]> {
+    return this.resultsService.getLeaderboard(period, from, to);
   }
 
   @Get('rank')

@@ -138,10 +138,11 @@ export class ResultsService implements OnModuleInit {
     };
   }
 
-  async getLeaderboard(period?: string): Promise<any[]> {
-    // Return all Live Test results with exam name; frontend handles dedup + filter + top-10.
-    // period === 'today' restricts to results recorded today (used by the admin
-    // "Top Performer of the Day" leaderboard).
+  async getLeaderboard(period?: string, from?: string, to?: string): Promise<any[]> {
+    // Return all Live Test results with exam name; frontend handles dedup + filter + top-N
+    // and the participant count. period === 'today' restricts to results recorded today
+    // (used by the admin "Top Performer of the Day" leaderboard); from/to restrict to an
+    // admin-selected date range.
     const qb = this.resultsRepository.createQueryBuilder('result')
       .select('users.name', 'username')
       .addSelect('users.user_id', 'user_id')
@@ -155,7 +156,19 @@ export class ResultsService implements OnModuleInit {
       .leftJoin('exams', 'exams', 'exams.id = result.exam_id')
       .where('chapters.test_type = :testType', { testType: 'Live Test' });
 
-    if (period === 'today') {
+    if (from || to) {
+      // Admin date-range filter. `from`/`to` are YYYY-MM-DD; include the whole `to` day.
+      if (from) {
+        const start = new Date(from);
+        start.setHours(0, 0, 0, 0);
+        qb.andWhere('result.date_taken >= :start', { start });
+      }
+      if (to) {
+        const end = new Date(to);
+        end.setHours(23, 59, 59, 999);
+        qb.andWhere('result.date_taken <= :end', { end });
+      }
+    } else if (period === 'today') {
       // Admin "Top Performer of the Day" — live, un-gated view of today's results.
       const start = new Date();
       start.setHours(0, 0, 0, 0);
