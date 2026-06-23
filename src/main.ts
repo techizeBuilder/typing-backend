@@ -6,6 +6,15 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  // Raise request body-size limits. Express/Nest default to 100kb, which rejects
+  // larger chapter payloads (long steno dictation passages) with 413 "Payload
+  // Too Large". Note: steno AUDIO is uploaded via multipart (Multer, streamed to
+  // disk) so it is not bound by these JSON limits — but on the LIVE server the
+  // nginx reverse proxy enforces its own `client_max_body_size` (default 1MB),
+  // which is the usual cause of a 413 on audio upload. See DEPLOYMENT_GUIDE.md.
+  app.useBodyParser('json', { limit: '50mb' });
+  app.useBodyParser('urlencoded', { limit: '50mb', extended: true });
+
   app.setGlobalPrefix('api');
 
   // CORS must be registered BEFORE static assets.

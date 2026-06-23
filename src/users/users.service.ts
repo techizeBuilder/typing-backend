@@ -62,8 +62,21 @@ export class UsersService implements OnModuleInit {
   }
 
   async create(userData: Partial<User>): Promise<User> {
-    const user = this.usersRepository.create(userData);
-    return this.usersRepository.save(user);
+    try {
+      const user = this.usersRepository.create(userData);
+      return await this.usersRepository.save(user);
+    } catch (err) {
+      // Surface a meaningful message instead of a raw 500 so the admin UI can
+      // explain *why* (e.g. duplicate phone/user_id, missing required field).
+      const detail = err?.message || String(err);
+      if (err?.code === '23505') {
+        // Postgres unique_violation — phone or user_id already exists.
+        throw new InternalServerErrorException(
+          `Could not create staff member: a user with this phone number or login ID already exists.`,
+        );
+      }
+      throw new InternalServerErrorException(`Create failed: ${detail}`);
+    }
   }
 
   async update(id: string, userData: Partial<User>): Promise<any> {
