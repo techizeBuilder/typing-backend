@@ -62,6 +62,13 @@ export class Chapter {
   @Column({ nullable: true })
   audio_url: string; // Only populated for Steno
 
+  // Admin-selected default dictation speed (WPM) for a Steno chapter. The student
+  // sees three choices centred on this value (default-10 / default / default+10),
+  // and audio playback is scaled relative to this speed. Null for non-Steno
+  // chapters and legacy Steno chapters (the student side falls back to 100 WPM).
+  @Column({ type: 'int', nullable: true })
+  steno_speed: number;
+
   @CreateDateColumn()
   created_at: Date;
 

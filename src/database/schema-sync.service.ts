@@ -23,6 +23,8 @@ export class SchemaSyncService implements OnApplicationBootstrap {
       // Hindi-Steno font configuration (chapters)
       `ALTER TABLE "chapters" ADD COLUMN IF NOT EXISTS "language_type" varchar`,
       `ALTER TABLE "chapters" ADD COLUMN IF NOT EXISTS "hindi_font_type" varchar`,
+      // Admin-selected default Steno dictation speed (WPM)
+      `ALTER TABLE "chapters" ADD COLUMN IF NOT EXISTS "steno_speed" integer`,
       // Per-student test limits (users)
       `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "live_tests_limit" integer`,
       `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "preload_tests_limit" integer`,
