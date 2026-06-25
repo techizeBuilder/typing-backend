@@ -180,8 +180,15 @@ export class ResultsService implements OnModuleInit {
       // admin-configured rank-update time (default 9:00 PM). Results recorded after
       // the most recent update time stay pending until the next one passes, so the
       // ranking "updates automatically" each day at the configured time.
+      //
+      // Each publish covers ONLY that single calendar day's results — from midnight
+      // of the published day up to the publish moment. Without the lower bound, every
+      // prior day's results would bleed into the current day's ranking and inflate the
+      // participant count, so we constrain to [startOfPublishedDay, cutoff].
       const cutoff = await this.settingsService.getLiveRankPublishedCutoff();
-      qb.andWhere('result.date_taken <= :cutoff', { cutoff });
+      const dayStart = new Date(cutoff);
+      dayStart.setHours(0, 0, 0, 0);
+      qb.andWhere('result.date_taken >= :dayStart AND result.date_taken <= :cutoff', { dayStart, cutoff });
     }
 
     return qb.orderBy('result.nwpm', 'DESC').getRawMany();
