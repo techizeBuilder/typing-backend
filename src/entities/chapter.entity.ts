@@ -59,6 +59,13 @@ export class Chapter {
   @Column({ type: 'text' })
   content_text: string;
 
+  // Total number of words in the dictation/passage. Auto-calculated from
+  // content_text in the admin form, but can be overridden manually. Shown to
+  // students on the Steno dictation cards. Null for legacy chapters (the UI
+  // falls back to counting content_text on the fly).
+  @Column({ type: 'int', nullable: true })
+  word_count: number;
+
   @Column({ nullable: true })
   audio_url: string; // Only populated for Steno
 

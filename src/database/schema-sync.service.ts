@@ -25,6 +25,15 @@ export class SchemaSyncService implements OnApplicationBootstrap {
       `ALTER TABLE "chapters" ADD COLUMN IF NOT EXISTS "hindi_font_type" varchar`,
       // Admin-selected default Steno dictation speed (WPM)
       `ALTER TABLE "chapters" ADD COLUMN IF NOT EXISTS "steno_speed" integer`,
+      // Total word count for a dictation/passage (auto-calculated, editable)
+      `ALTER TABLE "chapters" ADD COLUMN IF NOT EXISTS "word_count" integer`,
+      // Per-result mode (e.g. "Steno English") so the student "My Results" page
+      // can separate Typing vs Steno reports. Backfilled from the chapter's
+      // font_group for legacy rows that pre-date this column.
+      `ALTER TABLE "results" ADD COLUMN IF NOT EXISTS "mode" varchar`,
+      `UPDATE results r SET mode = c.font_group
+         FROM chapters c
+         WHERE r.chapter_id = c.id AND (r.mode IS NULL OR r.mode = '')`,
       // Per-student test limits (users)
       `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "live_tests_limit" integer`,
       `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "preload_tests_limit" integer`,

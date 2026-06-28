@@ -26,8 +26,8 @@ async function bootstrap() {
     'http://localhost:3001',
     'http://localhost:5173',
     'http://localhost:4173',
-    'https://typing.techizebuilder.com',
-    'http://typing.techizebuilder.com',
+    'https://balajityping.in',
+    'https://balajityping.in',
   ];
   app.enableCors({
     // Function form so we can also allow the packaged Electron desktop app.

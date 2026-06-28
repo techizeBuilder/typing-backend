@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, OnModuleInit, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User, UserStatus } from '../entities/user.entity';
@@ -88,6 +88,23 @@ export class UsersService implements OnModuleInit {
     } catch (err) {
       const detail = err?.message || String(err);
       throw new InternalServerErrorException(`Update failed: ${detail}`);
+    }
+  }
+
+  async remove(id: string): Promise<{ deleted: boolean }> {
+    const user = await this.usersRepository.findOneBy({ id });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    try {
+      // Remove the student's results first so the foreign-key constraint on the
+      // results table doesn't block the account deletion.
+      await this.usersRepository.query(`DELETE FROM results WHERE student_id = $1`, [id]);
+      await this.usersRepository.delete(id);
+      return { deleted: true };
+    } catch (err) {
+      const detail = err?.message || String(err);
+      throw new InternalServerErrorException(`Delete failed: ${detail}`);
     }
   }
 }
