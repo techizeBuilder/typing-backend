@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Post, Body, Param, UseGuards, Request, UploadedFile, UseInterceptors, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { Controller, Get, Put, Post, Delete, Body, Param, UseGuards, Request, UploadedFile, UseInterceptors, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -83,5 +83,11 @@ export class UsersController {
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
   async update(@Param('id') id: string, @Body() userData: Partial<User>): Promise<any> {
     return this.usersService.update(id, userData);
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
+  async remove(@Param('id') id: string): Promise<any> {
+    return this.usersService.remove(id);
   }
 }
