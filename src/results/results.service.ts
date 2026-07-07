@@ -158,16 +158,22 @@ export class ResultsService implements OnModuleInit {
 
     if (from || to) {
       // Admin date-range filter. `from`/`to` are YYYY-MM-DD; include the whole `to` day.
+      // The leaderboard only shows data up to the current date, so a `to` in the
+      // future is capped at the end of today.
+      const endOfToday = new Date();
+      endOfToday.setHours(23, 59, 59, 999);
       if (from) {
         const start = new Date(from);
         start.setHours(0, 0, 0, 0);
         qb.andWhere('result.date_taken >= :start', { start });
       }
+      let end = endOfToday;
       if (to) {
-        const end = new Date(to);
+        end = new Date(to);
         end.setHours(23, 59, 59, 999);
-        qb.andWhere('result.date_taken <= :end', { end });
+        if (end > endOfToday) end = endOfToday;
       }
+      qb.andWhere('result.date_taken <= :end', { end });
     } else if (period === 'today') {
       // Admin "Top Performer of the Day" — live, un-gated view of today's results.
       const start = new Date();

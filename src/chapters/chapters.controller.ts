@@ -48,8 +48,14 @@ export class ChaptersController {
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
-  create(@Body() chapterData: Partial<Chapter>): Promise<Chapter> {
-    return this.chaptersService.create(chapterData);
+  async create(@Body() chapterData: Partial<Chapter>): Promise<Partial<Chapter>> {
+    const saved = await this.chaptersService.create(chapterData);
+    // Don't echo the full passage back. Some production proxies/WAFs scan response
+    // bodies and block large non-ASCII payloads (e.g. Hindi Mangal text) with a 403
+    // AFTER the row is already saved — the admin then sees a bogus error. The
+    // frontend only needs the id + metadata of the created chapter.
+    const { content_text, ...slim } = saved;
+    return slim;
   }
 
   @Put(':id')
