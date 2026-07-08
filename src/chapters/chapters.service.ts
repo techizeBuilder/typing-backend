@@ -66,11 +66,20 @@ export class ChaptersService implements OnModuleInit {
     return this.attachExams(chapters);
   }
 
-  async findFiltered(fontGroup?: FontGroup, testType?: string, examId?: string): Promise<Chapter[]> {
+  // summary=true omits content_text (the full passage — by far the heaviest
+  // column) for callers that only need chapter metadata, e.g. the admin dashboard.
+  async findFiltered(fontGroup?: FontGroup, testType?: string, examId?: string, summary = false): Promise<Chapter[]> {
     const where: any = {};
     if (fontGroup) where.font_group = fontGroup;
     if (testType) where.test_type = testType;
-    let chapters = await this.chaptersRepository.find({ where, order: { chapter_no: 'ASC' } });
+    const select = summary
+      ? ([
+          'id', 'chapter_no', 'name', 'exam_id', 'exam_ids', 'test_date', 'test_type',
+          'font_group', 'language_type', 'hindi_font_type', 'word_count', 'audio_url',
+          'steno_speed', 'created_at', 'updated_at',
+        ] as (keyof Chapter)[])
+      : undefined;
+    let chapters = await this.chaptersRepository.find({ where, select, order: { chapter_no: 'ASC' } });
     if (examId) {
       chapters = chapters.filter((c) => {
         if (c.exam_id === examId) return true;

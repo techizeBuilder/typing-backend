@@ -41,8 +41,12 @@ export class ChaptersController {
     @Query('fontGroup') fontGroup: FontGroup,
     @Query('testType') testType: string,
     @Query('examId') examId: string,
+    @Query('summary') summary?: string,
   ): Promise<Chapter[]> {
-    return this.chaptersService.findFiltered(fontGroup, testType, examId);
+    return this.chaptersService.findFiltered(
+      fontGroup, testType, examId,
+      summary === '1' || summary === 'true',
+    );
   }
 
   @Post()
