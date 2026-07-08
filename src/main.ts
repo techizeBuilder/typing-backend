@@ -1,10 +1,15 @@
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
+import compression from 'compression';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Gzip all API responses. The admin panel pulls large JSON lists (results with
+  // per-word grading data, chapters with full passages) that compress 10-20x.
+  app.use(compression());
 
   // Raise request body-size limits. Express/Nest default to 100kb, which rejects
   // larger chapter payloads (long steno dictation passages) with 413 "Payload

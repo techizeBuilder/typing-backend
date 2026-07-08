@@ -32,9 +32,39 @@ export class ResultsController {
     return rows;
   }
 
+  // Paged + filtered admin list: returns { rows, total } when ?page= is present.
+  // pageSize=0 returns all matching rows (export). Without ?page=, falls back to
+  // the legacy full-array response (?lean=1 for the dashboard's slim variant).
   @Get()
-  findAll(): Promise<Result[]> {
-    return this.resultsService.findAll();
+  findAll(
+    @Query('lean') lean?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('search') search?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('course') course?: string,
+    @Query('testType') testType?: string,
+    @Query('examName') examName?: string,
+  ): Promise<Result[] | { rows: Result[]; total: number }> {
+    if (page !== undefined) {
+      return this.resultsService.findPage({
+        page: Math.max(1, parseInt(page, 10) || 1),
+        pageSize: pageSize === undefined ? 25 : Math.max(0, parseInt(pageSize, 10) || 0),
+        search, from, to, course, testType, examName,
+      });
+    }
+    return this.resultsService.findAll(lean === '1' || lean === 'true');
+  }
+
+  // NOTE: keep this LAST among the GET routes — ':id' would otherwise swallow
+  // the static paths above (leaderboard, rank, user/:userId).
+  @Get(':id')
+  async findOne(@Param('id') id: string): Promise<Result | null> {
+    const row = await this.resultsService.findOneFull(id);
+    // Never ship the credential hash to the client.
+    if (row?.user) delete (row.user as any).password_hash;
+    return row;
   }
 
   @Post()

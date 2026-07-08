@@ -36,6 +36,22 @@ export class ResultsService implements OnModuleInit {
     } catch (err) {
       this.logger.warn(`Could not ensure results.test_type column: ${err?.message || err}`);
     }
+
+    // Indexes for the hot lookup paths: per-student history, per-chapter ranks,
+    // and the date-ordered admin list / leaderboard date filters.
+    try {
+      await this.resultsRepository.query(
+        `CREATE INDEX IF NOT EXISTS idx_results_student_id ON results (student_id)`,
+      );
+      await this.resultsRepository.query(
+        `CREATE INDEX IF NOT EXISTS idx_results_chapter_id ON results (chapter_id)`,
+      );
+      await this.resultsRepository.query(
+        `CREATE INDEX IF NOT EXISTS idx_results_date_taken ON results (date_taken DESC)`,
+      );
+    } catch (err) {
+      this.logger.warn(`Could not ensure results indexes: ${err?.message || err}`);
+    }
   }
 
   // Accept either a UUID (student_id) OR the human-readable login id (user_id).
@@ -58,10 +74,86 @@ export class ResultsService implements OnModuleInit {
     });
   }
 
-  findAll(): Promise<Result[]> {
+  // lean=true returns only the tiny per-row fields the admin DASHBOARD aggregates
+  // (counts + stored nwpm by date). No relations, no raw grading data. The full
+  // (non-lean) variant is kept for backward compatibility but is very heavy —
+  // page through findPage() instead.
+  findAll(lean = false): Promise<Result[]> {
+    if (lean) {
+      return this.resultsRepository
+        .createQueryBuilder('result')
+        .select(['result.id', 'result.nwpm', 'result.mode', 'result.test_type', 'result.date_taken'])
+        .orderBy('result.date_taken', 'DESC')
+        .getMany();
+    }
     return this.resultsRepository.find({
       relations: ['exam', 'user', 'chapter'],
       order: { date_taken: 'DESC' },
+    });
+  }
+
+  // Paged + filtered admin results list. The raw grading fields (user_input,
+  // reference_words, word_statuses, pattern_data) stay included because the admin
+  // table re-derives NWPM/GWPM/accuracy from them (frontend resultMetrics.js) —
+  // but only for one page of rows at a time, and the joined relations are trimmed
+  // to the handful of fields the table shows (no chapter passage, no password hash).
+  // pageSize <= 0 returns ALL matching rows (used by the export buttons).
+  async findPage(opts: {
+    page: number;
+    pageSize: number;
+    search?: string;
+    from?: string;
+    to?: string;
+    course?: string;
+    testType?: string;
+    examName?: string;
+  }): Promise<{ rows: Result[]; total: number }> {
+    const qb = this.resultsRepository.createQueryBuilder('result')
+      .leftJoin('result.user', 'user')
+      .addSelect(['user.id', 'user.name', 'user.user_id', 'user.category'])
+      .leftJoin('result.exam', 'exam')
+      .addSelect(['exam.id', 'exam.name', 'exam.test_time_minutes'])
+      .leftJoin('result.chapter', 'chapter')
+      .addSelect(['chapter.id', 'chapter.chapter_no'])
+      .orderBy('result.date_taken', 'DESC');
+
+    if (opts.search) {
+      qb.andWhere('(user.name ILIKE :search OR user.user_id ILIKE :search)', {
+        search: `%${opts.search}%`,
+      });
+    }
+    if (opts.from) {
+      const start = new Date(opts.from);
+      start.setHours(0, 0, 0, 0);
+      qb.andWhere('result.date_taken >= :from', { from: start });
+    }
+    if (opts.to) {
+      const end = new Date(opts.to);
+      end.setHours(23, 59, 59, 999);
+      qb.andWhere('result.date_taken <= :to', { to: end });
+    }
+    if (opts.course) qb.andWhere('user.category = :course', { course: opts.course });
+    if (opts.testType) qb.andWhere('result.test_type = :testType', { testType: opts.testType });
+    if (opts.examName === 'Practice') {
+      qb.andWhere('result.exam_id IS NULL');
+    } else if (opts.examName) {
+      qb.andWhere('exam.name = :examName', { examName: opts.examName });
+    }
+
+    const total = await qb.getCount();
+    if (opts.pageSize > 0) {
+      qb.skip(Math.max(0, opts.page - 1) * opts.pageSize).take(opts.pageSize);
+    }
+    return { rows: await qb.getMany(), total };
+  }
+
+  // Full single-result detail (including the chapter's complete passage text)
+  // for the admin "View" action — fetched on demand instead of shipping it for
+  // every row in the list.
+  findOneFull(id: string): Promise<Result | null> {
+    return this.resultsRepository.findOne({
+      where: { id },
+      relations: ['exam', 'user', 'chapter'],
     });
   }
 
