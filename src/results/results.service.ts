@@ -230,6 +230,22 @@ export class ResultsService implements OnModuleInit {
     };
   }
 
+  // Deletes result rows older than `retentionDays`, keeping the most recent
+  // window of data. Used by the admin dashboard's "Clear Results" button.
+  async clearOldResults(retentionDays = 10): Promise<number> {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - retentionDays);
+    const result = await this.resultsRepository
+      .createQueryBuilder()
+      .delete()
+      .from(Result)
+      .where('date_taken < :cutoff', { cutoff })
+      .execute();
+    const deleted = result.affected || 0;
+    this.logger.log(`Cleared ${deleted} result(s) older than ${retentionDays} day(s) (cutoff=${cutoff.toISOString()})`);
+    return deleted;
+  }
+
   async getLeaderboard(period?: string, from?: string, to?: string): Promise<any[]> {
     // Return all Live Test results with exam name; frontend handles dedup + filter + top-N
     // and the participant count. period === 'today' restricts to results recorded today

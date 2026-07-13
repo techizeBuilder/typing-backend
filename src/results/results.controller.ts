@@ -1,12 +1,30 @@
-import { Controller, Get, Post, Body, Param, Query, Logger, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, Query, Logger, BadRequestException, UseGuards } from '@nestjs/common';
 import { ResultsService } from './results.service';
 import { Result } from '../entities/result.entity';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { UserRole } from '../entities/user.entity';
 
 @Controller('results')
 export class ResultsController {
   private readonly logger = new Logger(ResultsController.name);
 
   constructor(private readonly resultsService: ResultsService) {}
+
+  // Admin dashboard "Clear Results" action — deletes everything older than
+  // `days` (default 10), keeping the most recent window of data.
+  // Declared before the paged GET routes but as a distinct HTTP method
+  // (DELETE), so it can't collide with the GET(':id') catch-all below.
+  @Delete('cleanup')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
+  async cleanup(@Query('days') days?: string): Promise<{ deleted: number }> {
+    const retentionDays = Math.max(1, parseInt(days ?? '10', 10) || 10);
+    const deleted = await this.resultsService.clearOldResults(retentionDays);
+    this.logger.log(`DELETE /results/cleanup → removed ${deleted} row(s) older than ${retentionDays} day(s)`);
+    return { deleted };
+  }
 
   @Get('leaderboard')
   getLeaderboard(
