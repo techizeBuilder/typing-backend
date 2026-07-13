@@ -4,9 +4,10 @@ import { ExamsController } from './exams.controller';
 import { ExamsService } from './exams.service';
 import { Exam } from '../entities/exam.entity';
 import { Chapter } from '../entities/chapter.entity';
+import { Result } from '../entities/result.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Exam, Chapter])],
+  imports: [TypeOrmModule.forFeature([Exam, Chapter, Result])],
   controllers: [ExamsController],
   providers: [ExamsService],
   exports: [ExamsService],

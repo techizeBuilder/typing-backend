@@ -1,8 +1,9 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Exam } from '../entities/exam.entity';
 import { Chapter } from '../entities/chapter.entity';
+import { Result } from '../entities/result.entity';
 
 @Injectable()
 export class ExamsService implements OnModuleInit {
@@ -13,6 +14,8 @@ export class ExamsService implements OnModuleInit {
     private examsRepository: Repository<Exam>,
     @InjectRepository(Chapter)
     private chaptersRepository: Repository<Chapter>,
+    @InjectRepository(Result)
+    private resultsRepository: Repository<Result>,
   ) {}
 
   async onModuleInit() {
@@ -93,6 +96,39 @@ export class ExamsService implements OnModuleInit {
   }
 
   async remove(id: string): Promise<any> {
-    return this.examsRepository.delete(id);
+    const exam = await this.examsRepository.findOneBy({ id });
+    if (!exam) {
+      throw new NotFoundException('Exam not found.');
+    }
+
+    const resultsCount = await this.resultsRepository.count({ where: { exam_id: id } });
+    if (resultsCount > 0) {
+      throw new ConflictException(
+        `Cannot delete this exam because ${resultsCount} result${resultsCount === 1 ? '' : 's'} ${resultsCount === 1 ? 'is' : 'are'} already recorded against it. Delete those results first.`,
+      );
+    }
+
+    // Chapters reference an exam via exam_id / exam_ids (not an enforced FK), so
+    // deleting the exam wouldn't fail at the DB level but would leave chapters
+    // pointing at a non-existent exam — surface it as a dependency instead.
+    const chapters = await this.chaptersRepository.find();
+    const linkedChapters = chapters.filter(
+      (c) => c.exam_id === id || (Array.isArray(c.exam_ids) && c.exam_ids.includes(id)),
+    );
+    if (linkedChapters.length > 0) {
+      throw new ConflictException(
+        `Cannot delete this exam because it is linked to ${linkedChapters.length} chapter${linkedChapters.length === 1 ? '' : 's'} (${linkedChapters.map((c) => c.chapter_no ?? c.id).join(', ')}). Unlink it from those chapters first.`,
+      );
+    }
+
+    try {
+      return await this.examsRepository.delete(id);
+    } catch (err: any) {
+      // Fallback for any other FK we didn't anticipate above.
+      if (err?.code === '23503') {
+        throw new ConflictException('Cannot delete this exam because other records still reference it.');
+      }
+      throw err;
+    }
   }
 }
