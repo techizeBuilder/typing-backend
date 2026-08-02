@@ -5,8 +5,10 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname, join } from 'path';
-import { createReadStream, existsSync } from 'fs';
+import { basename, extname, join } from 'path';
+import { createReadStream, existsSync, unlinkSync } from 'fs';
+import ffmpeg from 'fluent-ffmpeg';
+import { path as ffmpegPath } from '@ffmpeg-installer/ffmpeg';
 import type { Response } from 'express';
 import { ChaptersService } from './chapters.service';
 import { Chapter, FontGroup } from '../entities/chapter.entity';
@@ -14,6 +16,13 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '../entities/user.entity';
+
+// Browsers' <audio> element only decodes mp3/wav/ogg/webm. Recorders often export
+// raw MPEG-1, WMA, or AAC audio that uploads fine but fails to play back with
+// "format not supported". @ffmpeg-installer bundles a static ffmpeg binary per
+// platform (fetched on `npm install`), so this works on the live server too
+// without installing ffmpeg system-wide.
+ffmpeg.setFfmpegPath(ffmpegPath);
 
 // Nest compiles src/ → dist/src/, so controller lives at dist/src/chapters/
 // Go up THREE levels to reach backend root, then into uploads/steno-audio/
@@ -110,6 +119,29 @@ export class ChaptersController {
     @UploadedFile() file: Express.Multer.File,
   ) {
     if (!file) throw new BadRequestException('No audio file uploaded');
+
+    // Normalize every upload to mp3 so playback never depends on what format
+    // the admin's recorder happened to export (mpeg, wma, m4a, ...).
+    if (extname(file.path).toLowerCase() !== '.mp3') {
+      const mp3Path = file.path.slice(0, -extname(file.path).length) + '.mp3';
+      try {
+        await new Promise<void>((resolve, reject) => {
+          ffmpeg(file.path)
+            .audioCodec('libmp3lame')
+            .format('mp3')
+            .on('end', () => resolve())
+            .on('error', reject)
+            .save(mp3Path);
+        });
+      } catch (err) {
+        throw new BadRequestException(
+          `Could not read this audio file (unrecognized/corrupt format): ${(err as Error).message}`,
+        );
+      }
+      unlinkSync(file.path);
+      file.filename = basename(mp3Path);
+    }
+
     const audioUrl = `/uploads/steno-audio/${file.filename}`;
     await this.chaptersService.update(id, { audio_url: audioUrl });
     return { audio_url: audioUrl };
