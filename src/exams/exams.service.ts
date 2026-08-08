@@ -95,30 +95,51 @@ export class ExamsService implements OnModuleInit {
     return this.examsRepository.update(id, examData);
   }
 
-  async remove(id: string): Promise<any> {
+  async remove(id: string, force = false): Promise<any> {
     const exam = await this.examsRepository.findOneBy({ id });
     if (!exam) {
       throw new NotFoundException('Exam not found.');
     }
 
     const resultsCount = await this.resultsRepository.count({ where: { exam_id: id } });
-    if (resultsCount > 0) {
-      throw new ConflictException(
-        `Cannot delete this exam because ${resultsCount} result${resultsCount === 1 ? '' : 's'} ${resultsCount === 1 ? 'is' : 'are'} already recorded against it. Delete those results first.`,
-      );
-    }
-
-    // Chapters reference an exam via exam_id / exam_ids (not an enforced FK), so
-    // deleting the exam wouldn't fail at the DB level but would leave chapters
-    // pointing at a non-existent exam — surface it as a dependency instead.
     const chapters = await this.chaptersRepository.find();
     const linkedChapters = chapters.filter(
       (c) => c.exam_id === id || (Array.isArray(c.exam_ids) && c.exam_ids.includes(id)),
     );
-    if (linkedChapters.length > 0) {
-      throw new ConflictException(
-        `Cannot delete this exam because it is linked to ${linkedChapters.length} chapter${linkedChapters.length === 1 ? '' : 's'} (${linkedChapters.map((c) => c.chapter_no ?? c.id).join(', ')}). Unlink it from those chapters first.`,
-      );
+
+    if (!force) {
+      if (resultsCount > 0) {
+        throw new ConflictException(
+          `Cannot delete this exam because ${resultsCount} result${resultsCount === 1 ? '' : 's'} ${resultsCount === 1 ? 'is' : 'are'} already recorded against it. Delete those results first, or use Force Delete.`,
+        );
+      }
+
+      // Chapters reference an exam via exam_id / exam_ids (not an enforced FK), so
+      // deleting the exam wouldn't fail at the DB level but would leave chapters
+      // pointing at a non-existent exam — surface it as a dependency instead.
+      if (linkedChapters.length > 0) {
+        throw new ConflictException(
+          `Cannot delete this exam because it is linked to ${linkedChapters.length} chapter${linkedChapters.length === 1 ? '' : 's'} (${linkedChapters.map((c) => c.chapter_no ?? c.id).join(', ')}). Unlink it from those chapters first, or use Force Delete.`,
+        );
+      }
+    } else {
+      // Force delete: permanently remove all results recorded against this exam,
+      // and detach (not delete) any chapter that referenced it — chapters are
+      // reusable content, not exam-owned data.
+      if (resultsCount > 0) {
+        await this.resultsRepository.delete({ exam_id: id });
+        this.logger.warn(`Force-deleted ${resultsCount} result(s) for exam ${id}.`);
+      }
+      if (linkedChapters.length > 0) {
+        for (const chapter of linkedChapters) {
+          if (chapter.exam_id === id) chapter.exam_id = null as any;
+          if (Array.isArray(chapter.exam_ids)) {
+            chapter.exam_ids = chapter.exam_ids.filter((examId) => examId !== id);
+          }
+        }
+        await this.chaptersRepository.save(linkedChapters);
+        this.logger.warn(`Force-delete: unlinked exam ${id} from ${linkedChapters.length} chapter(s).`);
+      }
     }
 
     try {

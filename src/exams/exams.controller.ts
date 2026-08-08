@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Logger, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Logger, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -151,7 +151,7 @@ export class ExamsController {
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
-  remove(@Param('id') id: string): Promise<any> {
-    return this.examsService.remove(id);
+  remove(@Param('id') id: string, @Query('force') force?: string): Promise<any> {
+    return this.examsService.remove(id, force === 'true');
   }
 }
