@@ -28,6 +28,10 @@ export const SETTING_KEYS = {
   MOBILE_APP_URL: 'mobile_app_url',                     // e.g. https://drive.google.com/...
   MOBILE_APP_VERSION: 'mobile_app_version',
   MOBILE_APP_RELEASE_DATE: 'mobile_app_release_date',
+  // Institute branding shown on downloaded PDFs/passages (and available for any other
+  // student-facing screen that wants it via GET /settings).
+  INSTITUTE_NAME: 'institute_name',
+  INSTITUTE_LOGO_URL: 'institute_logo_url',             // relative path, e.g. /uploads/settings/xxxx.png
 } as const;
 
 export const SETTING_DEFAULTS: Record<string, string> = {
@@ -38,4 +42,6 @@ export const SETTING_DEFAULTS: Record<string, string> = {
   [SETTING_KEYS.MOBILE_APP_URL]: '',
   [SETTING_KEYS.MOBILE_APP_VERSION]: '',
   [SETTING_KEYS.MOBILE_APP_RELEASE_DATE]: '',
+  [SETTING_KEYS.INSTITUTE_NAME]: '',
+  [SETTING_KEYS.INSTITUTE_LOGO_URL]: '',
 };

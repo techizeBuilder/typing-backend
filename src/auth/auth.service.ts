@@ -12,9 +12,13 @@ export class AuthService {
   ) {}
 
   async validateUser(username: string, pass: string): Promise<any> {
-    const user = await this.usersService.findOne(username);
+    // Use the raw (un-computed) status here — findOne()/applyDynamicStatus reports a
+    // student as "Inactive" once validity_end has passed, which must NOT block login.
+    // Premium/validity expiry only restricts premium features/content, never login;
+    // only a real admin-set Inactive status does that.
+    const user = await this.usersService.findOneRaw(username);
     if (user && (await bcrypt.compare(pass, user.password_hash))) {
-      
+
       // Check for allowed time slots (numeric comparison to avoid string edge-cases)
       if (user.role === 'Student' && user.allowed_login_time_start && user.allowed_login_time_end) {
         const now = new Date();
@@ -28,24 +32,33 @@ export class AuthService {
         }
       }
 
-      // Check if student is active
+      // Check if student is active (admin-disabled accounts only — NOT expired validity)
       if (user.role === 'Student' && user.status === 'Inactive') {
         throw new UnauthorizedException('Your account is inactive. Please contact the administrator.');
       }
 
       const { password_hash, ...result } = user;
-      return result;
+      return { ...result, premium_expired: this.isPremiumExpired(user) };
     }
     return null;
   }
 
+  /** True once a Student's validity_end has passed — feature/content gate only, never a login gate. */
+  private isPremiumExpired(user: User): boolean {
+    if (user.role !== 'Student' || !user.validity_end) return false;
+    const endDate = new Date(user.validity_end);
+    endDate.setHours(23, 59, 59, 999);
+    return new Date() > endDate;
+  }
+
   async login(user: any) {
-    const payload = { 
-      username: user.user_id, 
-      sub: user.id, 
+    const payload = {
+      username: user.user_id,
+      sub: user.id,
       role: user.role,
       permissions: user.permissions || [],
-      validity_end: user.validity_end 
+      validity_end: user.validity_end,
+      premium_expired: user.premium_expired ?? this.isPremiumExpired(user),
     };
     return {
       access_token: this.jwtService.sign(payload),

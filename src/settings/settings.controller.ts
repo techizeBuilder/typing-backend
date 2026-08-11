@@ -1,5 +1,9 @@
-import { Controller, Get, Put, Body, Param, Res, UseGuards, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, Res, UseGuards, UseInterceptors, UploadedFile, BadRequestException, NotFoundException } from '@nestjs/common';
 import type { Response } from 'express';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
+import * as fs from 'fs';
 import { SettingsService } from './settings.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -36,6 +40,30 @@ export class SettingsController {
     const url = await this.service.get(SETTING_KEYS.MOBILE_APP_URL);
     if (!url) throw new NotFoundException('No mobile application download link has been configured yet.');
     return res.redirect(302, url);
+  }
+
+  // Institute logo upload for branding the downloaded PDF/passage documents. Returns the
+  // relative URL; the admin panel then saves it via PUT /settings/institute_logo_url so the
+  // key/value store stays the single source of truth (same two-step flow as exam images).
+  @Post('institute-logo')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
+  @UseInterceptors(FileInterceptor('logo', {
+    storage: diskStorage({
+      destination: (req, file, cb) => {
+        const path = './uploads/settings';
+        if (!fs.existsSync(path)) fs.mkdirSync(path, { recursive: true });
+        cb(null, path);
+      },
+      filename: (req, file, cb) => {
+        const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
+        cb(null, `${randomName}${extname(file.originalname)}`);
+      },
+    }),
+  }))
+  uploadInstituteLogo(@UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('No logo file was uploaded.');
+    return { url: `/uploads/settings/${file.filename}` };
   }
 
   @Get(':key')

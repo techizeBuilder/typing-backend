@@ -56,6 +56,21 @@ export class UsersService implements OnModuleInit {
     return this.applyDynamicStatus(user);
   }
 
+  /**
+   * Same lookup as findOne(), but returns the *real* DB status instead of the
+   * dynamically-computed one. Used by auth so an expired premium/validity period
+   * (which findOne()/applyDynamicStatus would report as "Inactive") is never
+   * confused with an admin-disabled account when deciding whether login is
+   * allowed — see AuthService.validateUser().
+   */
+  async findOneRaw(identifier: string): Promise<User | null> {
+    let user = await this.usersRepository.findOneBy({ user_id: identifier });
+    if (!user) {
+      user = await this.usersRepository.findOneBy({ phone: identifier });
+    }
+    return user;
+  }
+
   async findById(id: string): Promise<User | null> {
     const user = await this.usersRepository.findOneBy({ id });
     return this.applyDynamicStatus(user);
