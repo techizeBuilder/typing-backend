@@ -259,6 +259,24 @@ export class ResultsService implements OnModuleInit {
       .addSelect('result.accuracy', 'max_accuracy')
       .addSelect('exams.name', 'exam_name')
       .addSelect('result.date_taken', 'date_taken')
+      // Raw grading inputs so the frontend can re-derive the CANONICAL nwpm/gwpm/
+      // accuracy via computeResultMetrics() — the same recompute ResultScreen and
+      // the admin results table already apply, because the engine-stored columns
+      // above (max_nwpm/max_gwpm/max_accuracy) can drift from the true value for
+      // typing results (see resultMetrics.js). Ranking on the raw stored columns
+      // is what let a 0/0/100% row outrank real attempts.
+      .addSelect('result.gwpm', 'gwpm')
+      .addSelect('result.nwpm', 'nwpm')
+      .addSelect('result.accuracy', 'accuracy')
+      .addSelect('result.full_errors', 'full_errors')
+      .addSelect('result.half_errors', 'half_errors')
+      .addSelect('result.total_strokes', 'total_strokes')
+      .addSelect('result.time_elapsed', 'time_elapsed')
+      .addSelect('result.mode', 'mode')
+      .addSelect('result.pattern_data', 'pattern_data')
+      .addSelect('result.user_input', 'user_input')
+      .addSelect('result.reference_words', 'reference_words')
+      .addSelect('result.word_statuses', 'word_statuses')
       .innerJoin('users', 'users', 'users.id = result.student_id')
       .innerJoin('chapters', 'chapters', 'chapters.id = result.chapter_id')
       .leftJoin('exams', 'exams', 'exams.id = result.exam_id')
@@ -305,6 +323,15 @@ export class ResultsService implements OnModuleInit {
       qb.andWhere('result.date_taken >= :dayStart AND result.date_taken <= :cutoff', { dayStart, cutoff });
     }
 
-    return qb.orderBy('result.nwpm', 'DESC').getRawMany();
+    // Deterministic ranking: NWPM desc, tie-broken by accuracy desc, then
+    // earliest attempt first. Without these tie-breakers, rows with equal
+    // (often 0) NWPM come back in whatever arbitrary order Postgres happens
+    // to return them in, which is most visible once the frontend filters
+    // down to a single exam and only a handful of tied rows remain.
+    return qb
+      .orderBy('result.nwpm', 'DESC')
+      .addOrderBy('result.accuracy', 'DESC')
+      .addOrderBy('result.date_taken', 'ASC')
+      .getRawMany();
   }
 }
