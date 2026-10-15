@@ -1,3 +1,4 @@
+import { CHAPTER_DIFFICULTIES, normalizeChoice } from '../common/exam-extras';
 import {
   Controller, Get, Post, Put, Delete,
   Body, Query, Param, Res, UseGuards,
@@ -62,6 +63,7 @@ export class ChaptersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
   async create(@Body() chapterData: Partial<Chapter>): Promise<Partial<Chapter>> {
+    normalizeChoice(chapterData, 'difficulty', CHAPTER_DIFFICULTIES);
     const saved = await this.chaptersService.create(chapterData);
     // Don't echo the full passage back. Some production proxies/WAFs scan response
     // bodies and block large non-ASCII payloads (e.g. Hindi Mangal text) with a 403
@@ -75,6 +77,7 @@ export class ChaptersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
   update(@Param('id') id: string, @Body() chapterData: Partial<Chapter>): Promise<any> {
+    normalizeChoice(chapterData, 'difficulty', CHAPTER_DIFFICULTIES);
     return this.chaptersService.update(id, chapterData);
   }
 

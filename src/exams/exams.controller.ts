@@ -1,4 +1,7 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Logger, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Logger, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import * as fs from 'fs';
+import { join } from 'path';
+import { EXAM_REGIONS, normalizeChoice } from '../common/exam-extras';
 import { ConfigService } from '@nestjs/config';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -37,10 +40,12 @@ export class ExamsController {
     }),
   }))
   create(@Body() examData: any, @UploadedFile() file: Express.Multer.File): Promise<Exam> {
+    delete examData.rules_pdf_url;
     if (file) {
       // Store only relative path so the frontend can prepend the correct base URL
       examData.image_url = `/uploads/exams/${file.filename}`;
     }
+    normalizeChoice(examData, 'region', EXAM_REGIONS);
     // Convert stringified numbers back (FormData sends everything as strings)
     const numFields = ['test_time_minutes', 'font_size_user_screen', 'font_size_test_screen', 'max_words_strokes', 'no_of_words_strokes'];
     numFields.forEach(field => {
@@ -97,10 +102,12 @@ export class ExamsController {
     }),
   }))
   async update(@Param('id') id: string, @Body() examData: any, @UploadedFile() file: Express.Multer.File): Promise<any> {
+    delete examData.rules_pdf_url;
     if (file) {
       examData.image_url = `/uploads/exams/${file.filename}`;
     }
     
+    normalizeChoice(examData, 'region', EXAM_REGIONS);
     // Convert stringified numbers back
     const numFields = ['test_time_minutes', 'font_size_user_screen', 'font_size_test_screen', 'max_words_strokes', 'no_of_words_strokes'];
     numFields.forEach(field => {
@@ -141,6 +148,56 @@ export class ExamsController {
     delete examData.image; // remove the raw image file string if it ended up in body
 
     return this.examsService.update(id, examData);
+  }
+
+  // Official rules / instructions PDF for an exam (max 10 MB). Replaces any previous file.
+  @Post(':id/rules-pdf')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
+  @UseInterceptors(FileInterceptor('pdf', {
+    storage: diskStorage({
+      destination: (req, file, cb) => {
+        const path = './uploads/exam-rules';
+        if (!fs.existsSync(path)) fs.mkdirSync(path, { recursive: true });
+        cb(null, path);
+      },
+      filename: (req, file, cb) => {
+        const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
+        cb(null, `${randomName}.pdf`);
+      },
+    }),
+    limits: { fileSize: 10 * 1024 * 1024, files: 1 },
+    fileFilter: (req, file, cb) => {
+      if (file.mimetype === 'application/pdf') cb(null, true);
+      else cb(new BadRequestException('Only PDF files can be uploaded.'), false);
+    },
+  }))
+  async uploadRulesPdf(@Param('id') id: string, @UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('No PDF uploaded.');
+    const exam = await this.examsService.findOne(id);
+    if (!exam) {
+      fs.promises.unlink(file.path).catch(() => {});
+      throw new BadRequestException('Exam not found.');
+    }
+    this.deleteRulesFile(exam.rules_pdf_url);
+    const rules_pdf_url = `/uploads/exam-rules/${file.filename}`;
+    await this.examsService.update(id, { rules_pdf_url });
+    return { rules_pdf_url };
+  }
+
+  @Delete(':id/rules-pdf')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
+  async removeRulesPdf(@Param('id') id: string) {
+    const exam = await this.examsService.findOne(id);
+    if (!exam) throw new BadRequestException('Exam not found.');
+    this.deleteRulesFile(exam.rules_pdf_url);
+    await this.examsService.update(id, { rules_pdf_url: null });
+    return { rules_pdf_url: null };
+  }
+
+  private deleteRulesFile(url?: string | null) {
+    if (url && url.startsWith('/uploads/exam-rules/')) fs.promises.unlink(join('.', url)).catch(() => {});
   }
 
   @Get(':id')

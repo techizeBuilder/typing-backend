@@ -76,6 +76,10 @@ export class Chapter {
   @Column({ type: 'int', nullable: true })
   steno_speed: number;
 
+  // Optional difficulty shown to students: Easy | Moderate | Hard
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  difficulty: string | null;
+
   @CreateDateColumn()
   created_at: Date;
 

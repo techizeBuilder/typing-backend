@@ -77,6 +77,15 @@ export class Exam {
   @Column({ nullable: true })
   image_url: string; // EXAM LOGO (URL format for now)
 
+  // Region / state the exam belongs to (Delhi, UP, …) — drives the student-side
+  // exam pattern filter. Null = not set (shown under "All Exam" only).
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  region: string | null;
+
+  // Optional official rules / instructions PDF (uploaded via POST /exams/:id/rules-pdf)
+  @Column({ type: 'varchar', nullable: true })
+  rules_pdf_url: string | null;
+
   @Column({ default: false })
   auto_submit: boolean; // Auto Submit (Y/N)
 

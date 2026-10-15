@@ -51,6 +51,10 @@ export class SchemaSyncService implements OnApplicationBootstrap {
       `ALTER TABLE "users" ALTER COLUMN "city" DROP NOT NULL`,
       `ALTER TABLE "users" ALTER COLUMN "state" DROP NOT NULL`,
       `ALTER TABLE "users" ALTER COLUMN "roll_no" DROP NOT NULL`,
+      // Exam extras: region filter, official rules PDF, test difficulty
+      `ALTER TABLE "exams" ADD COLUMN IF NOT EXISTS "region" varchar(40)`,
+      `ALTER TABLE "exams" ADD COLUMN IF NOT EXISTS "rules_pdf_url" varchar`,
+      `ALTER TABLE "chapters" ADD COLUMN IF NOT EXISTS "difficulty" varchar(20)`,
       // Support tickets (student help requests) and their conversation
       `CREATE TABLE IF NOT EXISTS "support_tickets" (
         "id" uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
