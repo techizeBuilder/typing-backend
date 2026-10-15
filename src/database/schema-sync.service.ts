@@ -51,6 +51,30 @@ export class SchemaSyncService implements OnApplicationBootstrap {
       `ALTER TABLE "users" ALTER COLUMN "city" DROP NOT NULL`,
       `ALTER TABLE "users" ALTER COLUMN "state" DROP NOT NULL`,
       `ALTER TABLE "users" ALTER COLUMN "roll_no" DROP NOT NULL`,
+      // Support tickets (student help requests) and their conversation
+      `CREATE TABLE IF NOT EXISTS "support_tickets" (
+        "id" uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+        "ticket_no" SERIAL,
+        "student_id" uuid NOT NULL,
+        "subject" varchar(200) NOT NULL,
+        "category" varchar(60) NOT NULL DEFAULT 'Other',
+        "priority" varchar(20) NOT NULL DEFAULT 'Medium',
+        "status" varchar(20) NOT NULL DEFAULT 'Open',
+        "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+        "updated_at" TIMESTAMP NOT NULL DEFAULT now()
+      )`,
+      `CREATE INDEX IF NOT EXISTS "idx_support_tickets_student" ON "support_tickets" ("student_id")`,
+      `CREATE TABLE IF NOT EXISTS "support_replies" (
+        "id" uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+        "ticket_id" uuid NOT NULL REFERENCES "support_tickets"("id") ON DELETE CASCADE,
+        "author_id" uuid NOT NULL,
+        "author_type" varchar(20) NOT NULL,
+        "author_name" varchar(200),
+        "message" text NOT NULL,
+        "attachments" text,
+        "created_at" TIMESTAMP NOT NULL DEFAULT now()
+      )`,
+      `CREATE INDEX IF NOT EXISTS "idx_support_replies_ticket" ON "support_replies" ("ticket_id")`,
     ];
 
     for (const sql of statements) {
