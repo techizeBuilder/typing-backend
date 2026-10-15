@@ -32,6 +32,8 @@ export const SETTING_KEYS = {
   // student-facing screen that wants it via GET /settings).
   INSTITUTE_NAME: 'institute_name',
   INSTITUTE_LOGO_URL: 'institute_logo_url',             // relative path, e.g. /uploads/settings/xxxx.png
+  // Admin-designed exam screen ("Screen 7 — Institute Layout"), JSON; see common/screen-layout.ts.
+  SCREEN_LAYOUT: 'screen_layout',
 } as const;
 
 export const SETTING_DEFAULTS: Record<string, string> = {
@@ -44,4 +46,5 @@ export const SETTING_DEFAULTS: Record<string, string> = {
   [SETTING_KEYS.MOBILE_APP_RELEASE_DATE]: '',
   [SETTING_KEYS.INSTITUTE_NAME]: '',
   [SETTING_KEYS.INSTITUTE_LOGO_URL]: '',
+  [SETTING_KEYS.SCREEN_LAYOUT]: '',
 };

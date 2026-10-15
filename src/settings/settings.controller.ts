@@ -10,6 +10,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '../entities/user.entity';
 import { SETTING_KEYS } from '../entities/app_setting.entity';
+import { sanitizeScreenLayout } from '../common/screen-layout';
 
 @Controller('settings')
 export class SettingsController {
@@ -88,6 +89,10 @@ export class SettingsController {
       if (!/^https?:\/\/.+/i.test(trimmed)) {
         throw new BadRequestException('Download URL must start with http:// or https://');
       }
+    }
+    // Screen layout is structured JSON: validate and normalise it.
+    if (key === SETTING_KEYS.SCREEN_LAYOUT) {
+      return this.service.set(key, sanitizeScreenLayout(trimmed));
     }
     return this.service.set(key, trimmed);
   }
