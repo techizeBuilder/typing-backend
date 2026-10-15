@@ -108,6 +108,14 @@ export class SchemaSyncService implements OnApplicationBootstrap {
         "created_at" TIMESTAMP NOT NULL DEFAULT now()
       )`,
       `CREATE INDEX IF NOT EXISTS "idx_student_folders_student" ON "student_folders" ("student_id")`,
+      // Admin settings for the built-in font groups (active flag, description, preview)
+      `CREATE TABLE IF NOT EXISTS "font_group_settings" (
+        "font_group" varchar(40) PRIMARY KEY,
+        "is_active" boolean NOT NULL DEFAULT true,
+        "description" varchar(300),
+        "preview_text" varchar(200),
+        "updated_at" TIMESTAMP NOT NULL DEFAULT now()
+      )`,
       `CREATE TABLE IF NOT EXISTS "student_folder_items" (
         "id" uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
         "folder_id" uuid NOT NULL,
