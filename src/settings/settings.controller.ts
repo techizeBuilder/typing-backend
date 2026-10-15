@@ -97,6 +97,17 @@ export class SettingsController {
     if (key === SETTING_KEYS.PLANS_PAYMENT_NOTE && trimmed.length > 500) {
       throw new BadRequestException('Payment instructions must be at most 500 characters.');
     }
+    // Refer & Earn settings.
+    if (key === SETTING_KEYS.REFERRAL_ENABLED && !['true', 'false'].includes(trimmed)) {
+      throw new BadRequestException('referral_enabled must be true or false.');
+    }
+    const pctKeys: string[] = [SETTING_KEYS.REFERRAL_COMMISSION_PCT, SETTING_KEYS.REFERRAL_PREMIUM_COMMISSION_PCT, SETTING_KEYS.REFERRAL_DISCOUNT_PCT];
+    if (pctKeys.includes(key) && !(/^\d{1,2}$/.test(trimmed) && Number(trimmed) <= 50)) {
+      throw new BadRequestException('Percentages must be whole numbers from 0 to 50.');
+    }
+    if (key === SETTING_KEYS.REFERRAL_MIN_PAYOUT && !(/^\d{1,6}$/.test(trimmed) && Number(trimmed) >= 1)) {
+      throw new BadRequestException('Minimum payout must be a whole number of rupees (at least 1).');
+    }
     // Screen layout is structured JSON: validate and normalise it.
     if (key === SETTING_KEYS.SCREEN_LAYOUT) {
       return this.service.set(key, sanitizeScreenLayout(trimmed));

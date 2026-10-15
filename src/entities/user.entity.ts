@@ -105,6 +105,17 @@ export class User {
   @Column({ type: 'int', nullable: true })
   steno_tests_limit: number;
 
+  // Refer & Earn: the student's own code, and who referred them (set at sign-up
+  // or when they first use a code). Columns added by SchemaSyncService.
+  @Column({ type: 'varchar', length: 16, nullable: true })
+  referral_code: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  referred_by: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  referred_at: Date | null;
+
   @CreateDateColumn()
   created_at: Date;
 

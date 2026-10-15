@@ -90,6 +90,16 @@ export class PlanSubscription {
   @Column({ type: 'varchar', length: 300, nullable: true })
   admin_note: string | null;
 
+  // Referral discount on a first plan (amount payable = plan_price - discount_amount).
+  @Column({ type: 'uuid', nullable: true })
+  referrer_id: string | null;
+
+  @Column({ type: 'int', default: 0 })
+  discount_pct: number;
+
+  @Column({ type: 'int', default: 0 })
+  discount_amount: number;
+
   @Column({ type: 'int', nullable: true })
   amount_paid: number | null;
 

@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
 import { Plan, PlanSubscription, PLAN_CATEGORIES } from '../entities/plan.entity';
 import { User, UserRole } from '../entities/user.entity';
+import { ReferralsService } from '../referrals/referrals.service';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_PENDING = 3;
@@ -23,6 +24,7 @@ export class PlansService {
     @InjectRepository(PlanSubscription) private readonly subs: Repository<PlanSubscription>,
     @InjectRepository(User) private readonly users: Repository<User>,
     private readonly dataSource: DataSource,
+    private readonly referrals: ReferralsService,
   ) {}
 
   // Admins and super admins always; sub-admins with the 'plans' permission.
@@ -140,13 +142,14 @@ export class PlansService {
       this.subs.find({ where: { student_id: studentId }, order: { created_at: 'DESC' }, take: 50 }),
     ]);
     return {
+      referral: user ? await this.referrals.preview(user) : null,
       validity_start: dateOnly(user?.validity_start),
       validity_end: dateOnly(user?.validity_end),
       subscriptions: subs.map((s) => this.view(s)),
     };
   }
 
-  async request(studentId: string, planId: string, note: unknown) {
+  async request(studentId: string, planId: string, note: unknown, referralCode?: unknown) {
     const student = await this.users.findOne({ where: { id: studentId } });
     if (!student || student.role !== UserRole.STUDENT) throw new ForbiddenException('Only students can request a plan.');
     const plan = UUID.test(planId || '') ? await this.plans.findOne({ where: { id: planId, is_active: true } }) : null;
@@ -156,9 +159,12 @@ export class PlansService {
     if (pending.length >= MAX_PENDING) throw new BadRequestException(`You can have at most ${MAX_PENDING} pending requests.`);
     const text = String(note ?? '').trim();
     if (text.length > 300) throw new BadRequestException('Note must be at most 300 characters.');
+    const ref = await this.referrals.discountForRequest(student, referralCode);
     const sub = await this.subs.save(this.subs.create({
       student_id: studentId, plan_id: plan.id, plan_name: plan.name, plan_price: plan.price,
       duration_days: plan.duration_days, status: 'Requested', student_note: text || null,
+      referrer_id: ref.referrer_id, discount_pct: ref.discount_pct,
+      discount_amount: Math.round((plan.price * ref.discount_pct) / 100),
     }));
     return this.view(sub);
   }
@@ -232,7 +238,10 @@ export class PlansService {
       if (plan?.live_tests_limit != null) userPatch.live_tests_limit = plan.live_tests_limit;
       await m.update(User, { id: student.id }, userPatch);
       Object.assign(sub, pay, { status: 'Active', starts_on: starts, ends_on: ends, activated_at: new Date(), activated_by: staffId });
-      return this.view(await m.save(PlanSubscription, sub), { ...student, ...userPatch } as User);
+      const saved = await m.save(PlanSubscription, sub);
+      // Refer & Earn: commission for the referrer on the student's first paid plan.
+      const commission = await this.referrals.creditOnActivation(m, saved, student);
+      return { ...this.view(saved, { ...student, ...userPatch } as User), referral_commission: commission ? commission.amount : 0 };
     });
   }
 

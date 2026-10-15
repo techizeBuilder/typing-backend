@@ -5,11 +5,13 @@ import { UsersModule } from '../users/users.module';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './jwt.strategy';
+import { ReferralsModule } from '../referrals/referrals.module';
 
 @Module({
   imports: [
     UsersModule,
     PassportModule,
+    ReferralsModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'SUPER_SECRET_KEY', // Should be in .env
       signOptions: { expiresIn: '1d' },

@@ -22,7 +22,7 @@ export class PlansController {
   @Post(':id/request')
   @UseGuards(JwtAuthGuard)
   request(@Request() req, @Param('id') id: string, @Body() body: any) {
-    return this.plans.request(req.user.userId, id, body?.note);
+    return this.plans.request(req.user.userId, id, body?.note, body?.referral_code);
   }
 
   @Post('requests/:id/cancel')

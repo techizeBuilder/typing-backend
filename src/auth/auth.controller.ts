@@ -1,13 +1,16 @@
 import { Controller, Post, Body, UnauthorizedException, HttpCode } from '@nestjs/common';
 import { AuthService } from './auth.service';
+import { ReferralsService } from '../referrals/referrals.service';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) { }
+  constructor(private authService: AuthService, private referrals: ReferralsService) { }
 
   @Post('signup')
   async signup(@Body() userData: any) {
-    return this.authService.signup(userData);
+    const user = await this.authService.signup(userData);
+    if (userData?.ref) await this.referrals.attributeOnSignup(user.id, userData.ref).catch(() => {});
+    return user;
   }
 
   @Post('login')

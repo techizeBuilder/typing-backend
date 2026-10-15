@@ -38,6 +38,12 @@ export const SETTING_KEYS = {
   PLANS_CONTACT_PHONE: 'plans_contact_phone',
   PLANS_CONTACT_WHATSAPP: 'plans_contact_whatsapp',
   PLANS_PAYMENT_NOTE: 'plans_payment_note',
+  // Refer & Earn
+  REFERRAL_ENABLED: 'referral_enabled',
+  REFERRAL_COMMISSION_PCT: 'referral_commission_pct',
+  REFERRAL_PREMIUM_COMMISSION_PCT: 'referral_premium_commission_pct',
+  REFERRAL_DISCOUNT_PCT: 'referral_discount_pct',
+  REFERRAL_MIN_PAYOUT: 'referral_min_payout',
 } as const;
 
 export const SETTING_DEFAULTS: Record<string, string> = {
@@ -54,4 +60,9 @@ export const SETTING_DEFAULTS: Record<string, string> = {
   [SETTING_KEYS.PLANS_CONTACT_PHONE]: '',
   [SETTING_KEYS.PLANS_CONTACT_WHATSAPP]: '',
   [SETTING_KEYS.PLANS_PAYMENT_NOTE]: '',
+  [SETTING_KEYS.REFERRAL_ENABLED]: 'true',
+  [SETTING_KEYS.REFERRAL_COMMISSION_PCT]: '10',
+  [SETTING_KEYS.REFERRAL_PREMIUM_COMMISSION_PCT]: '15',
+  [SETTING_KEYS.REFERRAL_DISCOUNT_PCT]: '10',
+  [SETTING_KEYS.REFERRAL_MIN_PAYOUT]: '100',
 };
