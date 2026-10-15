@@ -34,6 +34,10 @@ export const SETTING_KEYS = {
   INSTITUTE_LOGO_URL: 'institute_logo_url',             // relative path, e.g. /uploads/settings/xxxx.png
   // Admin-designed exam screen ("Screen 7 — Institute Layout"), JSON; see common/screen-layout.ts.
   SCREEN_LAYOUT: 'screen_layout',
+  // How students pay for a plan (manual activation): shown on the Plan & Pricing page.
+  PLANS_CONTACT_PHONE: 'plans_contact_phone',
+  PLANS_CONTACT_WHATSAPP: 'plans_contact_whatsapp',
+  PLANS_PAYMENT_NOTE: 'plans_payment_note',
 } as const;
 
 export const SETTING_DEFAULTS: Record<string, string> = {
@@ -47,4 +51,7 @@ export const SETTING_DEFAULTS: Record<string, string> = {
   [SETTING_KEYS.INSTITUTE_NAME]: '',
   [SETTING_KEYS.INSTITUTE_LOGO_URL]: '',
   [SETTING_KEYS.SCREEN_LAYOUT]: '',
+  [SETTING_KEYS.PLANS_CONTACT_PHONE]: '',
+  [SETTING_KEYS.PLANS_CONTACT_WHATSAPP]: '',
+  [SETTING_KEYS.PLANS_PAYMENT_NOTE]: '',
 };

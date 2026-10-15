@@ -90,6 +90,13 @@ export class SettingsController {
         throw new BadRequestException('Download URL must start with http:// or https://');
       }
     }
+    // Plan contact numbers: digits with optional + / spaces / dashes.
+    if ((key === SETTING_KEYS.PLANS_CONTACT_PHONE || key === SETTING_KEYS.PLANS_CONTACT_WHATSAPP) && trimmed && !/^\+?[\d\s-]{7,20}$/.test(trimmed)) {
+      throw new BadRequestException('Enter a valid phone number (digits, optional +).');
+    }
+    if (key === SETTING_KEYS.PLANS_PAYMENT_NOTE && trimmed.length > 500) {
+      throw new BadRequestException('Payment instructions must be at most 500 characters.');
+    }
     // Screen layout is structured JSON: validate and normalise it.
     if (key === SETTING_KEYS.SCREEN_LAYOUT) {
       return this.service.set(key, sanitizeScreenLayout(trimmed));
