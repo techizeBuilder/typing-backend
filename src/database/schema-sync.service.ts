@@ -75,6 +75,20 @@ export class SchemaSyncService implements OnApplicationBootstrap {
         "created_at" TIMESTAMP NOT NULL DEFAULT now()
       )`,
       `CREATE INDEX IF NOT EXISTS "idx_support_replies_ticket" ON "support_replies" ("ticket_id")`,
+      // Student reviews (one per student; approved ones show on the landing page)
+      `CREATE TABLE IF NOT EXISTS "reviews" (
+        "id" uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+        "student_id" uuid NOT NULL UNIQUE,
+        "rating" integer NOT NULL,
+        "exam" varchar(150) NOT NULL,
+        "designation" varchar(150),
+        "message" text NOT NULL,
+        "photo_url" varchar,
+        "status" varchar(20) NOT NULL DEFAULT 'Pending',
+        "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+        "updated_at" TIMESTAMP NOT NULL DEFAULT now()
+      )`,
+      `CREATE INDEX IF NOT EXISTS "idx_reviews_status" ON "reviews" ("status")`,
     ];
 
     for (const sql of statements) {

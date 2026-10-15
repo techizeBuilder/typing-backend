@@ -25,6 +25,8 @@ import { SchemaSyncService } from './database/schema-sync.service';
 import { SupportModule } from './support/support.module';
 import { SupportTicket } from './entities/support_ticket.entity';
 import { SupportReply } from './entities/support_reply.entity';
+import { ReviewsModule } from './reviews/reviews.module';
+import { Review } from './entities/review.entity';
 
 // Create DataSource exactly like the working test
 const AppDataSource = new DataSource({
@@ -51,7 +53,7 @@ const AppDataSource = new DataSource({
       username: process.env.DB_USERNAME || 'postgres',
       password: process.env.DB_PASSWORD || '',
       database: process.env.DB_DATABASE || 'typing_master',
-      entities: [User, Exam, Chapter, Result, ResultPattern, Message, FlashBanner, AppSetting, SupportTicket, SupportReply],
+      entities: [User, Exam, Chapter, Result, ResultPattern, Message, FlashBanner, AppSetting, SupportTicket, SupportReply, Review],
       synchronize: false,  // TURN OFF AUTO-SYNC
       logging: false,
     }),
@@ -65,6 +67,7 @@ const AppDataSource = new DataSource({
     FlashBannersModule,
     SettingsModule,
     SupportModule,
+    ReviewsModule,
   ],
   controllers: [AppController],
   providers: [AppService, SchemaSyncService],
