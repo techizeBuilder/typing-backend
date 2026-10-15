@@ -30,6 +30,8 @@ import { Review } from './entities/review.entity';
 import { FavouritesModule } from './favourites/favourites.module';
 import { FontGroupsModule } from './font-groups/font-groups.module';
 import { FontGroupSetting } from './entities/font-group-setting.entity';
+import { MagazinesModule } from './magazines/magazines.module';
+import { Magazine } from './entities/magazine.entity';
 import { StudentFavourite, StudentFolder, StudentFolderItem } from './entities/favourite.entity';
 
 // Create DataSource exactly like the working test
@@ -57,7 +59,7 @@ const AppDataSource = new DataSource({
       username: process.env.DB_USERNAME || 'postgres',
       password: process.env.DB_PASSWORD || '',
       database: process.env.DB_DATABASE || 'typing_master',
-      entities: [User, Exam, Chapter, Result, ResultPattern, Message, FlashBanner, AppSetting, SupportTicket, SupportReply, Review, StudentFavourite, StudentFolder, StudentFolderItem, FontGroupSetting],
+      entities: [User, Exam, Chapter, Result, ResultPattern, Message, FlashBanner, AppSetting, SupportTicket, SupportReply, Review, StudentFavourite, StudentFolder, StudentFolderItem, FontGroupSetting, Magazine],
       synchronize: false,  // TURN OFF AUTO-SYNC
       logging: false,
     }),
@@ -74,6 +76,7 @@ const AppDataSource = new DataSource({
     ReviewsModule,
     FavouritesModule,
     FontGroupsModule,
+    MagazinesModule,
   ],
   controllers: [AppController],
   providers: [AppService, SchemaSyncService],

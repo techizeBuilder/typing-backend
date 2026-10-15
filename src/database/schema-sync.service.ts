@@ -116,6 +116,22 @@ export class SchemaSyncService implements OnApplicationBootstrap {
         "preview_text" varchar(200),
         "updated_at" TIMESTAMP NOT NULL DEFAULT now()
       )`,
+      // PDF magazines (KC / Progressive); files stored privately, streamed with access checks
+      `CREATE TABLE IF NOT EXISTS "magazines" (
+        "id" uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+        "collection" varchar(20) NOT NULL,
+        "folder" varchar(80),
+        "title" varchar(150) NOT NULL,
+        "subtitle" varchar(200),
+        "file_path" varchar NOT NULL,
+        "size_bytes" integer NOT NULL DEFAULT 0,
+        "pages" integer,
+        "is_premium" boolean NOT NULL DEFAULT false,
+        "sort_order" integer NOT NULL DEFAULT 0,
+        "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+        "updated_at" TIMESTAMP NOT NULL DEFAULT now()
+      )`,
+      `CREATE INDEX IF NOT EXISTS "idx_magazines_collection" ON "magazines" ("collection")`,
       `CREATE TABLE IF NOT EXISTS "student_folder_items" (
         "id" uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
         "folder_id" uuid NOT NULL,
