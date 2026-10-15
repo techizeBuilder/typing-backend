@@ -93,6 +93,28 @@ export class SchemaSyncService implements OnApplicationBootstrap {
         "updated_at" TIMESTAMP NOT NULL DEFAULT now()
       )`,
       `CREATE INDEX IF NOT EXISTS "idx_reviews_status" ON "reviews" ("status")`,
+      // Student favourites and folders ("My Dictations")
+      `CREATE TABLE IF NOT EXISTS "student_favourites" (
+        "id" uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+        "student_id" uuid NOT NULL,
+        "chapter_id" uuid NOT NULL,
+        "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+        UNIQUE ("student_id", "chapter_id")
+      )`,
+      `CREATE TABLE IF NOT EXISTS "student_folders" (
+        "id" uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+        "student_id" uuid NOT NULL,
+        "name" varchar(60) NOT NULL,
+        "created_at" TIMESTAMP NOT NULL DEFAULT now()
+      )`,
+      `CREATE INDEX IF NOT EXISTS "idx_student_folders_student" ON "student_folders" ("student_id")`,
+      `CREATE TABLE IF NOT EXISTS "student_folder_items" (
+        "id" uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+        "folder_id" uuid NOT NULL,
+        "chapter_id" uuid NOT NULL,
+        "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+        UNIQUE ("folder_id", "chapter_id")
+      )`,
     ];
 
     for (const sql of statements) {
