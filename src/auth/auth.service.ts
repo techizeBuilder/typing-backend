@@ -1,8 +1,8 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { User } from '../entities/user.entity';
+import { User, UserRole, UserStatus } from '../entities/user.entity';
 
 @Injectable()
 export class AuthService {
@@ -66,19 +66,29 @@ export class AuthService {
   }
 
   async signup(userData: any) {
+    if (!userData?.username || !userData?.password) throw new BadRequestException('Username and password are required.');
     const existing = await this.usersService.findOne(userData.username);
     if (existing) {
       throw new ConflictException('Username already exists');
     }
 
-    const { password, username, ...rest } = userData;
+    const { password, username } = userData;
     const hashedPassword = await bcrypt.hash(password, 10);
-    
+
+    // Public endpoint: only the sign-up form's own fields are accepted. Anything
+    // else (role, permissions, validity, limits, status…) is ignored, so a new
+    // account is always a plain Student.
+    const text = (v: any) => (v === undefined || v === null ? undefined : String(v).trim());
     const user = await this.usersService.create({
-      ...rest,
+      name: text(userData.name),
+      phone: text(userData.phone),
+      city: text(userData.city),
+      state: text(userData.state),
+      fathers_name: text(userData.fathers_name ?? userData.father_name),
+      role: UserRole.STUDENT,
       user_id: username,
       password_hash: hashedPassword,
-      status: 'Active',
+      status: UserStatus.ACTIVE,
     });
 
     const { password_hash, ...result } = user;
