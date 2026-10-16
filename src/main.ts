@@ -3,6 +3,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import compression from 'compression';
 import { AppModule } from './app.module';
+import { StripSecretsInterceptor } from './common/strip-secrets.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -21,6 +22,7 @@ async function bootstrap() {
   app.useBodyParser('urlencoded', { limit: '50mb', extended: true });
 
   app.setGlobalPrefix('api');
+  app.useGlobalInterceptors(new StripSecretsInterceptor());
 
   // CORS must be registered BEFORE static assets.
   // Express runs middleware in registration order — if static assets come first,

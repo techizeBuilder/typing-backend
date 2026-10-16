@@ -1,7 +1,7 @@
-import { Controller, Get, Put, Post, Delete, Body, Param, UseGuards, Request, UploadedFile, UseInterceptors, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { Controller, Get, Put, Post, Delete, Body, Param, UseGuards, Request, UploadedFile, UseInterceptors, BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../auth/roles.guard';
+import { RolesGuard, isFullAdmin } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { User, UserRole } from '../entities/user.entity';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -30,6 +30,35 @@ const AVATAR_UPLOAD = {
   },
 };
 
+const STAFF_ROLES: string[] = [UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN];
+const sameSet = (a: string[] | null | undefined, b: string[] | null | undefined) => {
+  const x = [...new Set(a || [])].sort(); const y = [...new Set(b || [])].sort();
+  return x.length === y.length && x.every((v, i) => v === y[i]);
+};
+
+// Who may create / change / delete which account:
+// - Sub-Admins need the "students" module for student accounts and the "staff"
+//   module for staff accounts, can only hand out modules they have themselves,
+//   and can never touch Admin or Super Admin accounts.
+// - Only a Super Admin can create, change or remove a Super Admin.
+// - Nobody changes their own role or permissions, or deletes themselves.
+function assertCanManage(actor: any, target: Partial<User> | null, changes: Partial<User> | null) {
+  const roles = [target?.role, changes?.role].filter(Boolean) as string[];
+  if (changes?.role !== undefined && !Object.values(UserRole).includes(changes.role as UserRole)) throw new BadRequestException('Unknown role.');
+  if (roles.includes(UserRole.SUPERADMIN) && actor.role !== UserRole.SUPERADMIN) throw new ForbiddenException('Only a Super Admin can manage Super Admin accounts.');
+  if (!isFullAdmin(actor.role)) {
+    if (roles.includes(UserRole.ADMIN)) throw new ForbiddenException('Only an Admin can manage Admin accounts.');
+    const perms: string[] = actor.permissions || [];
+    if (roles.some((r) => STAFF_ROLES.includes(r)) && !perms.includes('staff')) throw new ForbiddenException('You do not have access to Staff Management.');
+    if (roles.includes(UserRole.STUDENT) && !perms.includes('students')) throw new ForbiddenException('You do not have access to Students.');
+    if (changes?.permissions && changes.permissions.some((p) => !perms.includes(p))) throw new ForbiddenException('You can only give modules that you have yourself.');
+  }
+  if (target && target.id === actor.userId && changes) {
+    if (changes.role !== undefined && changes.role !== target.role) throw new ForbiddenException('You cannot change your own role.');
+    if (changes.permissions !== undefined && !sameSet(changes.permissions, target.permissions)) throw new ForbiddenException('You cannot change your own permissions.');
+  }
+}
+
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class UsersController {
@@ -37,8 +66,12 @@ export class UsersController {
 
   @Get()
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
-  findAll(): Promise<User[]> {
-    return this.usersService.findAll();
+  async findAll(@Request() req): Promise<User[]> {
+    const users = await this.usersService.findAll();
+    if (isFullAdmin(req.user.role)) return users;
+    const perms: string[] = req.user.permissions || [];
+    // The dashboard counts students for every staff member, so students stay visible.
+    return users.filter((u) => u.role === UserRole.STUDENT || (perms.includes('staff') && u.role !== UserRole.SUPERADMIN));
   }
 
   @Get('me')
@@ -76,9 +109,11 @@ export class UsersController {
   @Post(':id/avatar')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
   @UseInterceptors(FileInterceptor('file', AVATAR_UPLOAD))
-  async uploadUserAvatar(@Param('id') id: string, @UploadedFile() file: Express.Multer.File): Promise<any> {
+  async uploadUserAvatar(@Request() req, @Param('id') id: string, @UploadedFile() file: Express.Multer.File): Promise<any> {
     if (!file) throw new BadRequestException('No file uploaded');
-    if (!(await this.usersService.findById(id))) throw new BadRequestException('User not found');
+    const target = await this.usersService.findById(id);
+    if (!target) throw new BadRequestException('User not found');
+    assertCanManage(req.user, target, null);
     const filePath = `/uploads/profiles/${file.filename}`;
     await this.usersService.update(id, { profile_image: filePath });
     return { profile_image: filePath };
@@ -86,13 +121,19 @@ export class UsersController {
 
   @Get(':id')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
-  findOne(@Param('id') id: string): Promise<User | null> {
-    return this.usersService.findById(id);
+  async findOne(@Request() req, @Param('id') id: string): Promise<User | null> {
+    const user = await this.usersService.findById(id);
+    if (user && user.id !== req.user.userId) assertCanManage(req.user, user, null);
+    return user;
   }
 
   @Post()
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
-  async create(@Body() userData: Partial<User>): Promise<User> {
+  async create(@Request() req, @Body() userData: Partial<User>): Promise<User> {
+    if (!userData || typeof userData !== 'object') throw new BadRequestException('User data is required.');
+    delete (userData as any).id;
+    userData.role = (userData.role || UserRole.STUDENT) as UserRole;
+    assertCanManage(req.user, null, userData);
     cleanStudentExtras(userData);
     if (userData.password_hash) {
       const bcrypt = require('bcrypt');
@@ -103,14 +144,23 @@ export class UsersController {
 
   @Put(':id')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
-  async update(@Param('id') id: string, @Body() userData: Partial<User>): Promise<any> {
+  async update(@Request() req, @Param('id') id: string, @Body() userData: Partial<User>): Promise<any> {
+    if (!userData || typeof userData !== 'object') throw new BadRequestException('User data is required.');
+    const target = await this.usersService.findById(id);
+    if (!target) throw new NotFoundException('User not found');
+    delete (userData as any).id;
+    assertCanManage(req.user, target, userData);
     cleanStudentExtras(userData);
     return this.usersService.update(id, userData);
   }
 
   @Delete(':id')
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
-  async remove(@Param('id') id: string): Promise<any> {
+  async remove(@Request() req, @Param('id') id: string): Promise<any> {
+    const target = await this.usersService.findById(id);
+    if (!target) throw new NotFoundException('User not found');
+    if (target.id === req.user.userId) throw new ForbiddenException('You cannot delete your own account.');
+    assertCanManage(req.user, target, null);
     return this.usersService.remove(id);
   }
 }

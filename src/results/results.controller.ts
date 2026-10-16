@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Body, Param, Query, Logger, BadRequestException, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, Query, Logger, BadRequestException, ForbiddenException, UseGuards, Request } from '@nestjs/common';
 import { ResultsService } from './results.service';
 import { Result } from '../entities/result.entity';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -7,6 +7,12 @@ import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '../entities/user.entity';
 
 const kindOf = (k?: string) => (k === 'typing' || k === 'steno' ? k : undefined);
+
+// Staff may read any student's results; a student only their own. Clients send
+// either the UUID or the login ID (older sessions), so both count as "self".
+const STAFF = [UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN];
+const isStaff = (user: any) => STAFF.includes(user?.role);
+const isSelf = (user: any, id?: string) => !!id && (id === user?.userId || id === user?.username);
 
 @Controller('results')
 export class ResultsController {
@@ -20,7 +26,7 @@ export class ResultsController {
   // (DELETE), so it can't collide with the GET(':id') catch-all below.
   @Delete('cleanup')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   async cleanup(@Query('days') days?: string): Promise<{ deleted: number }> {
     const retentionDays = Math.max(1, parseInt(days ?? '10', 10) || 10);
     const deleted = await this.resultsService.clearOldResults(retentionDays);
@@ -67,6 +73,7 @@ export class ResultsController {
   }
 
   @Get('leaderboard')
+  @UseGuards(JwtAuthGuard)
   getLeaderboard(
     @Query('period') period?: string,
     @Query('from') from?: string,
@@ -76,15 +83,20 @@ export class ResultsController {
   }
 
   @Get('rank')
+  @UseGuards(JwtAuthGuard)
   getRank(
+    @Request() req,
     @Query('chapterId') chapterId: string,
     @Query('studentId') studentId: string,
   ) {
+    if (!isStaff(req.user) && !isSelf(req.user, studentId)) throw new ForbiddenException('You can only view your own rank.');
     return this.resultsService.getChapterRank(chapterId, studentId);
   }
 
   @Get('user/:userId')
-  async findByUser(@Param('userId') userId: string): Promise<Result[]> {
+  @UseGuards(JwtAuthGuard)
+  async findByUser(@Request() req, @Param('userId') userId: string): Promise<Result[]> {
+    if (!isStaff(req.user) && !isSelf(req.user, userId)) throw new ForbiddenException('You can only view your own results.');
     const rows = await this.resultsService.findByUser(userId);
     this.logger.log(`GET /results/user/${userId} → ${rows.length} row(s)`);
     return rows;
@@ -94,6 +106,8 @@ export class ResultsController {
   // pageSize=0 returns all matching rows (export). Without ?page=, falls back to
   // the legacy full-array response (?lean=1 for the dashboard's slim variant).
   @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
   findAll(
     @Query('lean') lean?: string,
     @Query('page') page?: string,
@@ -120,15 +134,28 @@ export class ResultsController {
   // NOTE: keep this LAST among the GET routes — ':id' would otherwise swallow
   // the static paths above (leaderboard, rank, user/:userId).
   @Get(':id')
-  async findOne(@Param('id') id: string): Promise<Result | null> {
+  @UseGuards(JwtAuthGuard)
+  async findOne(@Request() req, @Param('id') id: string): Promise<Result | null> {
     const row = await this.resultsService.findOneFull(id);
+    if (row && !isStaff(req.user) && row.student_id !== req.user.userId) throw new ForbiddenException('You can only view your own results.');
     // Never ship the credential hash to the client.
     if (row?.user) delete (row.user as any).password_hash;
     return row;
   }
 
   @Post()
-  async create(@Body() resultData: Partial<Result>): Promise<Result> {
+  @UseGuards(JwtAuthGuard)
+  async create(@Request() req, @Body() resultData: Partial<Result>): Promise<Result> {
+    if (!resultData || typeof resultData !== 'object') throw new BadRequestException('Result data is required.');
+    // A result is always saved for the logged-in user. A different student_id is
+    // refused rather than rewritten, so a result queued offline under another
+    // account on a shared PC waits until that student logs in again.
+    if (resultData.student_id && !isSelf(req.user, resultData.student_id)) throw new ForbiddenException('Results can only be saved for your own account.');
+    resultData.student_id = req.user.userId;
+    // Never let a client pick the row id (save() would overwrite that result) or attach relations.
+    delete (resultData as any).id;
+    delete (resultData as any).user;
+    delete (resultData as any).created_at;
     try {
       const saved = await this.resultsService.create(resultData);
       this.logger.log(`POST /results → saved id=${saved.id} student_id=${saved.student_id}`);

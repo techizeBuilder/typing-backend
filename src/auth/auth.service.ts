@@ -32,8 +32,8 @@ export class AuthService {
         }
       }
 
-      // Check if student is active (admin-disabled accounts only — NOT expired validity)
-      if (user.role === 'Student' && user.status === 'Inactive') {
+      // Admin-disabled accounts only — NOT expired validity. Deactivated staff are blocked too.
+      if (user.status === 'Inactive') {
         throw new UnauthorizedException('Your account is inactive. Please contact the administrator.');
       }
 

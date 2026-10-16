@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UnauthorizedException, HttpCode } from '@nestjs/common';
+import { Controller, Post, Body, UnauthorizedException, BadRequestException, HttpCode } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { ReferralsService } from '../referrals/referrals.service';
 
@@ -17,7 +17,10 @@ export class AuthController {
   @HttpCode(200) // Return 200 instead of 201
   async login(@Body() loginData: any) {
     // Support both username and phone login
-    const identifier = loginData.username || loginData.phone;
+    const identifier = loginData?.username || loginData?.phone;
+    if (typeof identifier !== 'string' || !identifier.trim() || typeof loginData?.password !== 'string' || !loginData.password) {
+      throw new BadRequestException('Username and password are required.');
+    }
     const user = await this.authService.validateUser(identifier, loginData.password);
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');

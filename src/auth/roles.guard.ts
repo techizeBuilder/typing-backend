@@ -1,24 +1,27 @@
 import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { UserRole } from '../entities/user.entity';
-import { ROLES_KEY } from './roles.decorator';
+import { PERMISSIONS_KEY, ROLES_KEY } from './roles.decorator';
+
+export const isFullAdmin = (role?: string) => role === UserRole.ADMIN || role === UserRole.SUPERADMIN;
+export const hasModule = (user: any, module: string) => isFullAdmin(user?.role) || (user?.role === UserRole.SUBADMIN && (user.permissions || []).includes(module));
 
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(ROLES_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
-    if (!requiredRoles) {
+    const targets = [context.getHandler(), context.getClass()];
+    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(ROLES_KEY, targets);
+    const modules = this.reflector.getAllAndOverride<string[]>(PERMISSIONS_KEY, targets);
+    if (!requiredRoles && !modules) {
       return true;
     }
+    // request.user is set by JwtStrategy.validate() with the role from the database.
     const { user } = context.switchToHttp().getRequest();
-    // Assuming the JwtStrategy attaches the full user or role to request.user
-    // Fix: In our JwtStrategy, we attached 'userId' and 'username'. 
-    // We might need to fetch the user from DB or adjust JwtStrategy to include 'role'.
-    return requiredRoles.some((role) => user.role === role);
+    if (!user) return false;
+    if (requiredRoles && !requiredRoles.some((role) => user.role === role)) return false;
+    if (modules && user.role === UserRole.SUBADMIN) return modules.some((m) => (user.permissions || []).includes(m));
+    return true;
   }
 }

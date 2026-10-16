@@ -15,7 +15,7 @@ import { ChaptersService } from './chapters.service';
 import { Chapter, FontGroup } from '../entities/chapter.entity';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/roles.decorator';
+import { Roles, RequirePermission } from '../auth/roles.decorator';
 import { UserRole } from '../entities/user.entity';
 import { cleanChapterInfo } from '../common/management-fields';
 
@@ -63,6 +63,7 @@ export class ChaptersController {
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
+  @RequirePermission('chapters')
   async create(@Body() chapterData: Partial<Chapter>): Promise<Partial<Chapter>> {
     cleanChapterInfo(chapterData);
     normalizeChoice(chapterData, 'difficulty', CHAPTER_DIFFICULTIES);
@@ -78,6 +79,7 @@ export class ChaptersController {
   @Put(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
+  @RequirePermission('chapters')
   update(@Param('id') id: string, @Body() chapterData: Partial<Chapter>): Promise<any> {
     cleanChapterInfo(chapterData);
     normalizeChoice(chapterData, 'difficulty', CHAPTER_DIFFICULTIES);
@@ -87,6 +89,7 @@ export class ChaptersController {
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
+  @RequirePermission('chapters')
   remove(@Param('id') id: string): Promise<any> {
     return this.chaptersService.remove(id);
   }
@@ -119,6 +122,7 @@ export class ChaptersController {
   @Post(':id/audio')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
+  @RequirePermission('chapters')
   @UseInterceptors(FileInterceptor('audio', { storage: audioStorage }))
   async uploadAudio(
     @Param('id') id: string,

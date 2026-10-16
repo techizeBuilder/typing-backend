@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param, Res, UseGuards, UseInterceptors, UploadedFile, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, Res, Request, UseGuards, UseInterceptors, UploadedFile, BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -6,11 +6,19 @@ import { extname } from 'path';
 import * as fs from 'fs';
 import { SettingsService } from './settings.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../auth/roles.guard';
+import { RolesGuard, hasModule } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '../entities/user.entity';
 import { SETTING_KEYS } from '../entities/app_setting.entity';
 import { sanitizeScreenLayout } from '../common/screen-layout';
+
+// Settings are Admin-only, except the payment and Refer & Earn settings on the
+// Subscription & Plan page, which Sub-Admins with that module may change.
+const PLAN_SETTING_KEYS: string[] = [
+  SETTING_KEYS.PLANS_CONTACT_PHONE, SETTING_KEYS.PLANS_CONTACT_WHATSAPP, SETTING_KEYS.PLANS_PAYMENT_NOTE,
+  SETTING_KEYS.REFERRAL_ENABLED, SETTING_KEYS.REFERRAL_COMMISSION_PCT, SETTING_KEYS.REFERRAL_PREMIUM_COMMISSION_PCT,
+  SETTING_KEYS.REFERRAL_DISCOUNT_PCT, SETTING_KEYS.REFERRAL_MIN_PAYOUT,
+];
 
 @Controller('settings')
 export class SettingsController {
@@ -48,7 +56,7 @@ export class SettingsController {
   // key/value store stays the single source of truth (same two-step flow as exam images).
   @Post('institute-logo')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   @UseInterceptors(FileInterceptor('logo', {
     storage: diskStorage({
       destination: (req, file, cb) => {
@@ -75,7 +83,10 @@ export class SettingsController {
   @Put(':key')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
-  async update(@Param('key') key: string, @Body('value') value: string) {
+  async update(@Request() req, @Param('key') key: string, @Body('value') value: string) {
+    if (req.user.role === UserRole.SUBADMIN && !(PLAN_SETTING_KEYS.includes(key) && hasModule(req.user, 'plans'))) {
+      throw new ForbiddenException('Only an Admin can change this setting.');
+    }
     if (typeof value !== 'string') {
       throw new BadRequestException('value (string) is required');
     }
