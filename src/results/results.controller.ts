@@ -6,6 +6,8 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '../entities/user.entity';
 
+const kindOf = (k?: string) => (k === 'typing' || k === 'steno' ? k : undefined);
+
 @Controller('results')
 export class ResultsController {
   private readonly logger = new Logger(ResultsController.name);
@@ -24,6 +26,23 @@ export class ResultsController {
     const deleted = await this.resultsService.clearOldResults(retentionDays);
     this.logger.log(`DELETE /results/cleanup → removed ${deleted} row(s) older than ${retentionDays} day(s)`);
     return { deleted };
+  }
+
+  // Admin statistics over every result matching the list filters (cards + charts).
+  @Get('stats')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
+  stats(
+    @Query('search') search?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('course') course?: string,
+    @Query('testType') testType?: string,
+    @Query('examName') examName?: string,
+    @Query('kind') kind?: string,
+    @Query('chapterId') chapterId?: string,
+  ) {
+    return this.resultsService.stats({ search, from, to, course, testType, examName, kind: kindOf(kind), chapterId: chapterId || undefined });
   }
 
   @Get('leaderboard')
@@ -64,12 +83,14 @@ export class ResultsController {
     @Query('course') course?: string,
     @Query('testType') testType?: string,
     @Query('examName') examName?: string,
+    @Query('kind') kind?: string,
+    @Query('chapterId') chapterId?: string,
   ): Promise<Result[] | { rows: Result[]; total: number }> {
     if (page !== undefined) {
       return this.resultsService.findPage({
         page: Math.max(1, parseInt(page, 10) || 1),
         pageSize: pageSize === undefined ? 25 : Math.max(0, parseInt(pageSize, 10) || 0),
-        search, from, to, course, testType, examName,
+        search, from, to, course, testType, examName, kind: kindOf(kind), chapterId: chapterId || undefined,
       });
     }
     return this.resultsService.findAll(lean === '1' || lean === 'true');
