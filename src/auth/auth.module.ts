@@ -5,14 +5,15 @@ import { UsersModule } from '../users/users.module';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './jwt.strategy';
+import { getJwtSecret } from './jwt-secret';
 
 @Module({
   imports: [
     UsersModule,
     PassportModule,
-    JwtModule.register({
-      secret: process.env.JWT_SECRET || 'SUPER_SECRET_KEY', // Should be in .env
-      signOptions: { expiresIn: '1d' },
+    JwtModule.registerAsync({
+      // Factory runs after ConfigModule has loaded .env (see jwt-secret.ts).
+      useFactory: () => ({ secret: getJwtSecret(), signOptions: { expiresIn: '1d' } }),
     }),
   ],
   providers: [AuthService, JwtStrategy],

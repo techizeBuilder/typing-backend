@@ -47,7 +47,7 @@ export class SettingsController {
   // key/value store stays the single source of truth (same two-step flow as exam images).
   @Post('institute-logo')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   @UseInterceptors(FileInterceptor('logo', {
     storage: diskStorage({
       destination: (req, file, cb) => {
@@ -73,7 +73,7 @@ export class SettingsController {
 
   @Put(':key')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
   async update(@Param('key') key: string, @Body('value') value: string) {
     if (typeof value !== 'string') {
       throw new BadRequestException('value (string) is required');

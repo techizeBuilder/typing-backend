@@ -7,7 +7,7 @@ import { ExamsService } from './exams.service';
 import { Exam } from '../entities/exam.entity';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/roles.decorator';
+import { Roles, RequirePermission } from '../auth/roles.decorator';
 import { UserRole } from '../entities/user.entity';
 
 @Controller('exams')
@@ -27,6 +27,7 @@ export class ExamsController {
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
+  @RequirePermission('exams')
   @UseInterceptors(FileInterceptor('image', {
     storage: diskStorage({
       destination: './uploads/exams',
@@ -87,6 +88,7 @@ export class ExamsController {
   @Put(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
+  @RequirePermission('exams')
   @UseInterceptors(FileInterceptor('image', {
     storage: diskStorage({
       destination: './uploads/exams',
@@ -151,6 +153,7 @@ export class ExamsController {
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
+  @RequirePermission('exams')
   remove(@Param('id') id: string, @Query('force') force?: string): Promise<any> {
     return this.examsService.remove(id, force === 'true');
   }

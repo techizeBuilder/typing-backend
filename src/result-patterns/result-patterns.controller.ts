@@ -3,7 +3,7 @@ import { ResultPatternsService } from './result-patterns.service';
 import { ResultPattern } from '../entities/result_pattern.entity';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/roles.decorator';
+import { Roles, RequirePermission } from '../auth/roles.decorator';
 import { UserRole } from '../entities/user.entity';
 
 @Controller('result-patterns')
@@ -18,6 +18,7 @@ export class ResultPatternsController {
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
+  @RequirePermission('exams')
   create(@Body() patternData: Partial<ResultPattern>): Promise<ResultPattern> {
     return this.resultPatternsService.create(patternData);
   }
@@ -25,6 +26,7 @@ export class ResultPatternsController {
   @Put(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
+  @RequirePermission('exams')
   update(@Param('id') id: string, @Body() patternData: Partial<ResultPattern>): Promise<any> {
     return this.resultPatternsService.update(id, patternData);
   }
@@ -37,6 +39,7 @@ export class ResultPatternsController {
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
+  @RequirePermission('exams')
   remove(@Param('id') id: string): Promise<any> {
     return this.resultPatternsService.remove(id);
   }
