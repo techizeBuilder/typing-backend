@@ -45,6 +45,27 @@ export class ResultsController {
     return this.resultsService.stats({ search, from, to, course, testType, examName, kind: kindOf(kind), chapterId: chapterId || undefined });
   }
 
+  // Admin leaderboard (Top N + summary), ranked on the server.
+  @Get('leaderboard/admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN)
+  adminLeaderboard(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('testType') testType?: string,
+    @Query('kind') kind?: string,
+    @Query('examName') examName?: string,
+    @Query('course') course?: string,
+    @Query('search') search?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.resultsService.adminLeaderboard({
+      from, to, kind: kindOf(kind), examName: examName || undefined, course: course || undefined, search: search || undefined,
+      testType: testType === 'Live Test' || testType === 'Pre-load Test' ? testType : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+    });
+  }
+
   @Get('leaderboard')
   getLeaderboard(
     @Query('period') period?: string,

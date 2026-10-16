@@ -321,6 +321,77 @@ export class ResultsService implements OnModuleInit {
     return deleted;
   }
 
+  // Admin leaderboard: each student's best attempt in the filtered set, ranked by the
+  // re-derived net speed (computeResultMetrics, as on the result screen), then accuracy,
+  // then earliest attempt — the same order the old in-browser ranking used. Only the
+  // top `limit` rows plus summary figures are returned (no raw typing data).
+  async adminLeaderboard(opts: {
+    from?: string; to?: string; testType?: 'Live Test' | 'Pre-load Test'; kind?: 'typing' | 'steno';
+    examName?: string; course?: string; search?: string; limit?: number;
+  }) {
+    const qb = this.resultsRepository.createQueryBuilder('result')
+      .select(['result.id', 'result.user_input', 'result.reference_words', 'result.word_statuses', 'result.total_strokes', 'result.time_elapsed',
+        'result.mode', 'result.pattern_data', 'result.gwpm', 'result.nwpm', 'result.accuracy', 'result.full_errors', 'result.half_errors',
+        'result.date_taken', 'result.student_id'])
+      .innerJoin('result.user', 'user').addSelect(['user.id', 'user.name', 'user.user_id', 'user.category', 'user.roll_no'])
+      .innerJoin('result.chapter', 'chapter').addSelect(['chapter.id', 'chapter.chapter_no', 'chapter.name', 'chapter.test_type'])
+      .leftJoin('result.exam', 'exam').addSelect(['exam.id', 'exam.name'])
+      .orderBy('result.id', 'ASC');
+    // Never show results dated after today.
+    const endOfToday = new Date(); endOfToday.setHours(23, 59, 59, 999);
+    if (opts.from) { const start = new Date(opts.from); start.setHours(0, 0, 0, 0); qb.andWhere('result.date_taken >= :lbStart', { lbStart: start }); }
+    let end = endOfToday;
+    if (opts.to) { end = new Date(opts.to); end.setHours(23, 59, 59, 999); if (end > endOfToday) end = endOfToday; }
+    qb.andWhere('result.date_taken <= :lbEnd', { lbEnd: end });
+    if (opts.testType === 'Live Test') qb.andWhere("chapter.test_type = 'Live Test'");
+    else if (opts.testType === 'Pre-load Test') qb.andWhere("chapter.test_type <> 'Live Test'");
+    if (opts.kind === 'steno') qb.andWhere("COALESCE(result.mode, '') ILIKE '%steno%'");
+    else if (opts.kind === 'typing') qb.andWhere("COALESCE(result.mode, '') NOT ILIKE '%steno%'");
+    if (opts.examName === 'Self Practice') qb.andWhere('result.exam_id IS NULL');
+    else if (opts.examName) qb.andWhere('exam.name = :lbExam', { lbExam: opts.examName });
+    if (opts.course) qb.andWhere("(:lbCourse = ANY(string_to_array(regexp_replace(COALESCE(user.category, ''), '\\s*,\\s*', ',', 'g'), ',')))", { lbCourse: opts.course });
+    if (opts.search) qb.andWhere('(user.name ILIKE :lbSearch OR user.user_id ILIKE :lbSearch OR user.roll_no ILIKE :lbSearch)', { lbSearch: `%${opts.search}%` });
+
+    const best = new Map<string, any>();
+    const better = (a: any, b: any) => (a.nwpm !== b.nwpm ? a.nwpm > b.nwpm : a.accuracy !== b.accuracy ? a.accuracy > b.accuracy : new Date(a.date_taken) < new Date(b.date_taken));
+    const examNames = new Set<string>();
+    const BATCH = 500;
+    for (let offset = 0; ; offset += BATCH) {
+      const rows = await qb.skip(offset).take(BATCH).getMany();
+      for (const r of rows as any[]) {
+        const m = computeResultMetrics(r);
+        const row = {
+          student_id: r.student_id, name: r.user?.name || '—', user_id: r.user?.user_id || '', roll_no: r.user?.roll_no || '', category: r.user?.category || '',
+          exam_name: r.exam?.name || 'Self Practice', chapter_no: r.chapter?.chapter_no || '', chapter_name: r.chapter?.name || '',
+          test_type: r.chapter?.test_type === 'Live Test' ? 'Live' : 'Preload', mode: r.mode || '', date_taken: r.date_taken,
+          gwpm: m.gwpm, nwpm: m.nwpm, accuracy: m.accuracy,
+        };
+        examNames.add(row.exam_name);
+        const cur = best.get(row.student_id);
+        if (!cur || better(row, cur)) best.set(row.student_id, row);
+      }
+      if (rows.length < BATCH) break;
+    }
+    const ranked = [...best.values()].sort((a, b) => (b.nwpm - a.nwpm) || (b.accuracy - a.accuracy) || (new Date(a.date_taken).getTime() - new Date(b.date_taken).getTime()));
+    const n = ranked.length;
+    const byCourse: Record<string, number> = {};
+    ranked.forEach((r) => (r.category ? r.category.split(',').map((c: string) => c.trim()).filter(Boolean) : ['Not set']).forEach((c: string) => { byCourse[c] = (byCourse[c] || 0) + 1; }));
+    const limit = Math.min(500, Math.max(1, opts.limit || 100));
+    return {
+      participants: n,
+      top: ranked.slice(0, limit).map((r, i) => ({ rank: i + 1, ...r })),
+      topper: ranked[0] ? { name: ranked[0].name, nwpm: ranked[0].nwpm, gwpm: ranked[0].gwpm } : null,
+      highest_nwpm: n ? ranked[0].nwpm : 0,
+      highest_gwpm: n ? Math.max(...ranked.map((r) => r.gwpm)) : 0,
+      highest_gwpm_by: n ? ranked.reduce((a, b) => (b.gwpm > a.gwpm ? b : a)).name : '',
+      avg_accuracy: n ? Math.round((ranked.reduce((t, r) => t + r.accuracy, 0) / n) * 100) / 100 : 0,
+      typing: ranked.filter((r) => !r.mode.toLowerCase().includes('steno')).length,
+      steno: ranked.filter((r) => r.mode.toLowerCase().includes('steno')).length,
+      by_course: Object.entries(byCourse).sort((a, b) => b[1] - a[1]).map(([course, count]) => ({ course, count })),
+      exams: [...examNames].sort(),
+    };
+  }
+
   async getLeaderboard(period?: string, from?: string, to?: string): Promise<any[]> {
     // Return all Live Test results with exam name; frontend handles dedup + filter + top-N
     // and the participant count. period === 'today' restricts to results recorded today
