@@ -86,6 +86,20 @@ export class Exam {
   @Column({ type: 'varchar', nullable: true })
   rules_pdf_url: string | null;
 
+  // Info for students (8.18, optional)
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  display_title: string | null;
+
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  conducted_by: string | null;
+
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  mistake_policy: string | null;
+
+  // Inactive exams are hidden from students without deleting them or their results
+  @Column({ default: true })
+  is_active: boolean;
+
   @Column({ default: false })
   auto_submit: boolean; // Auto Submit (Y/N)
 

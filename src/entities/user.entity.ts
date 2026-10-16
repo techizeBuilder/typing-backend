@@ -116,6 +116,23 @@ export class User {
   @Column({ type: 'timestamp', nullable: true })
   referred_at: Date | null;
 
+  // Extra student details (8.18, all optional)
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  email: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  address: string | null;
+
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  pin_code: string | null;
+
+  @Column({ type: 'varchar', length: 15, nullable: true })
+  guardian_phone: string | null;
+
+  // Admin-only note about the student
+  @Column({ type: 'text', nullable: true })
+  remarks: string | null;
+
   @CreateDateColumn()
   created_at: Date;
 

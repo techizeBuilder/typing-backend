@@ -80,6 +80,14 @@ export class Chapter {
   @Column({ type: 'varchar', length: 20, nullable: true })
   difficulty: string | null;
 
+  // Optional description shown to students (8.18)
+  @Column({ type: 'text', nullable: true })
+  description: string | null;
+
+  // Inactive tests are hidden from students without deleting them or their results
+  @Column({ default: true })
+  is_active: boolean;
+
   @CreateDateColumn()
   created_at: Date;
 

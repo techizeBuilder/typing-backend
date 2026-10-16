@@ -17,6 +17,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '../entities/user.entity';
+import { cleanChapterInfo } from '../common/management-fields';
 
 // Browsers' <audio> element only decodes mp3/wav/ogg/webm. Recorders often export
 // raw MPEG-1, WMA, or AAC audio that uploads fine but fails to play back with
@@ -63,6 +64,7 @@ export class ChaptersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
   async create(@Body() chapterData: Partial<Chapter>): Promise<Partial<Chapter>> {
+    cleanChapterInfo(chapterData);
     normalizeChoice(chapterData, 'difficulty', CHAPTER_DIFFICULTIES);
     const saved = await this.chaptersService.create(chapterData);
     // Don't echo the full passage back. Some production proxies/WAFs scan response
@@ -77,6 +79,7 @@ export class ChaptersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
   update(@Param('id') id: string, @Body() chapterData: Partial<Chapter>): Promise<any> {
+    cleanChapterInfo(chapterData);
     normalizeChoice(chapterData, 'difficulty', CHAPTER_DIFFICULTIES);
     return this.chaptersService.update(id, chapterData);
   }

@@ -12,6 +12,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '../entities/user.entity';
+import { cleanExamInfo } from '../common/management-fields';
 
 @Controller('exams')
 export class ExamsController {
@@ -57,6 +58,7 @@ export class ExamsController {
 
     // Convert booleans
     const boolFields = ['highlight_word', 'highlight_error', 'auto_scroll', 'auto_submit', 'test_re_type'];
+    cleanExamInfo(examData);
     boolFields.forEach(field => {
        if (examData[field] !== undefined) {
          examData[field] = (examData[field] === 'true' || examData[field] === true);
@@ -119,6 +121,7 @@ export class ExamsController {
 
     // Convert booleans
     const boolFields = ['highlight_word', 'highlight_error', 'auto_scroll', 'auto_submit', 'test_re_type'];
+    cleanExamInfo(examData);
     boolFields.forEach(field => {
        if (examData[field] !== undefined) {
          examData[field] = (examData[field] === 'true' || examData[field] === true);

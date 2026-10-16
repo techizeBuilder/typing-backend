@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '../entities/user.entity';
+import { cleanBanner } from '../common/management-fields';
 
 @Controller('flash-banners')
 export class FlashBannersController {
@@ -26,6 +27,7 @@ export class FlashBannersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
   create(@Body() data: Partial<FlashBanner>) {
+    cleanBanner(data, true);
     return this.service.create(data);
   }
 
@@ -33,6 +35,7 @@ export class FlashBannersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
   update(@Param('id') id: string, @Body() data: Partial<FlashBanner>) {
+    cleanBanner(data, false);
     return this.service.update(id, data);
   }
 

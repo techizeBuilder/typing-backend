@@ -15,7 +15,13 @@ export class FlashBannersService {
   }
 
   getActive(): Promise<FlashBanner[]> {
-    return this.repository.find({ where: { is_active: true }, order: { created_at: 'DESC' } });
+    // Active and inside the optional start/end window (dates inclusive, server date).
+    return this.repository.createQueryBuilder('b')
+      .where('b.is_active = true')
+      .andWhere('(b.start_date IS NULL OR b.start_date <= CURRENT_DATE)')
+      .andWhere('(b.end_date IS NULL OR b.end_date >= CURRENT_DATE)')
+      .orderBy('b.created_at', 'DESC')
+      .getMany();
   }
 
   create(data: Partial<FlashBanner>): Promise<FlashBanner> {
