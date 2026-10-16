@@ -131,13 +131,14 @@ export class ExamsService implements OnModuleInit {
         this.logger.warn(`Force-deleted ${resultsCount} result(s) for exam ${id}.`);
       }
       if (linkedChapters.length > 0) {
+        // update() (not save()): the eager `exam` relation would otherwise write the
+        // old exam_id back and the delete below would fail on the chapters FK.
         for (const chapter of linkedChapters) {
-          if (chapter.exam_id === id) chapter.exam_id = null as any;
-          if (Array.isArray(chapter.exam_ids)) {
-            chapter.exam_ids = chapter.exam_ids.filter((examId) => examId !== id);
-          }
+          const patch: any = {};
+          if (chapter.exam_id === id) patch.exam_id = null;
+          if (Array.isArray(chapter.exam_ids)) patch.exam_ids = chapter.exam_ids.filter((examId) => examId !== id);
+          await this.chaptersRepository.update(chapter.id, patch);
         }
-        await this.chaptersRepository.save(linkedChapters);
         this.logger.warn(`Force-delete: unlinked exam ${id} from ${linkedChapters.length} chapter(s).`);
       }
     }

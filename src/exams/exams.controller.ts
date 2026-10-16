@@ -141,11 +141,15 @@ export class ExamsController {
     }
 
     // Fix foreign key relation logic for TypeORM mapping
-    const patternId = examData.result_pattern || examData.result_pattern_id;
-    if (patternId && typeof patternId === 'string' && patternId.trim() !== '') {
-        examData.result_pattern = { id: patternId };
-    } else {
-        examData.result_pattern = null;
+    // Only touch the pattern when the request sends one: partial updates (e.g. the
+    // Activate/Deactivate toggle sends just is_active) must not clear it.
+    if ('result_pattern' in examData || 'result_pattern_id' in examData) {
+      const patternId = examData.result_pattern || examData.result_pattern_id;
+      if (patternId && typeof patternId === 'string' && patternId.trim() !== '') {
+          examData.result_pattern = { id: patternId };
+      } else {
+          examData.result_pattern = null;
+      }
     }
     delete examData.result_pattern_id; // remove unmapped simple column to avoid crash
     delete examData.image; // remove the raw image file string if it ended up in body

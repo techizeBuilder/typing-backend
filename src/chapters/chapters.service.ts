@@ -76,7 +76,7 @@ export class ChaptersService implements OnModuleInit {
       ? ([
           'id', 'chapter_no', 'name', 'exam_id', 'exam_ids', 'test_date', 'test_type',
           'font_group', 'language_type', 'hindi_font_type', 'word_count', 'audio_url',
-          'steno_speed', 'difficulty', 'created_at', 'updated_at',
+          'steno_speed', 'difficulty', 'description', 'is_active', 'created_at', 'updated_at',
         ] as (keyof Chapter)[])
       : undefined;
     let chapters = await this.chaptersRepository.find({ where, select, order: { chapter_no: 'ASC' } });
