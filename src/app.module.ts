@@ -36,6 +36,8 @@ import { PlansModule } from './plans/plans.module';
 import { Plan, PlanSubscription } from './entities/plan.entity';
 import { ReferralsModule } from './referrals/referrals.module';
 import { ReferralCommission, ReferralPayout } from './entities/referral.entity';
+import { AiAnalysisModule } from './ai-analysis/ai-analysis.module';
+import { AiAnalysis } from './entities/ai-analysis.entity';
 import { StudentFavourite, StudentFolder, StudentFolderItem } from './entities/favourite.entity';
 
 // Create DataSource exactly like the working test
@@ -63,7 +65,7 @@ const AppDataSource = new DataSource({
       username: process.env.DB_USERNAME || 'postgres',
       password: process.env.DB_PASSWORD || '',
       database: process.env.DB_DATABASE || 'typing_master',
-      entities: [User, Exam, Chapter, Result, ResultPattern, Message, FlashBanner, AppSetting, SupportTicket, SupportReply, Review, StudentFavourite, StudentFolder, StudentFolderItem, FontGroupSetting, Magazine, Plan, PlanSubscription, ReferralCommission, ReferralPayout],
+      entities: [User, Exam, Chapter, Result, ResultPattern, Message, FlashBanner, AppSetting, SupportTicket, SupportReply, Review, StudentFavourite, StudentFolder, StudentFolderItem, FontGroupSetting, Magazine, Plan, PlanSubscription, ReferralCommission, ReferralPayout, AiAnalysis],
       synchronize: false,  // TURN OFF AUTO-SYNC
       logging: false,
     }),
@@ -83,6 +85,7 @@ const AppDataSource = new DataSource({
     MagazinesModule,
     PlansModule,
     ReferralsModule,
+    AiAnalysisModule,
   ],
   controllers: [AppController],
   providers: [AppService, SchemaSyncService],

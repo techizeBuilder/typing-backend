@@ -44,6 +44,9 @@ export const SETTING_KEYS = {
   REFERRAL_PREMIUM_COMMISSION_PCT: 'referral_premium_commission_pct',
   REFERRAL_DISCOUNT_PCT: 'referral_discount_pct',
   REFERRAL_MIN_PAYOUT: 'referral_min_payout',
+  // AI Deep Analysis (needs ANTHROPIC_API_KEY in the backend .env)
+  AI_ANALYSIS_ENABLED: 'ai_analysis_enabled',
+  AI_DAILY_LIMIT: 'ai_daily_limit',
 } as const;
 
 export const SETTING_DEFAULTS: Record<string, string> = {
@@ -65,4 +68,6 @@ export const SETTING_DEFAULTS: Record<string, string> = {
   [SETTING_KEYS.REFERRAL_PREMIUM_COMMISSION_PCT]: '15',
   [SETTING_KEYS.REFERRAL_DISCOUNT_PCT]: '10',
   [SETTING_KEYS.REFERRAL_MIN_PAYOUT]: '100',
+  [SETTING_KEYS.AI_ANALYSIS_ENABLED]: 'true',
+  [SETTING_KEYS.AI_DAILY_LIMIT]: '5',
 };

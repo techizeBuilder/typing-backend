@@ -206,6 +206,19 @@ export class SchemaSyncService implements OnApplicationBootstrap {
         "created_at" TIMESTAMP NOT NULL DEFAULT now()
       )`,
       `CREATE INDEX IF NOT EXISTS "idx_referral_payouts_referrer" ON "referral_payouts" ("referrer_id")`,
+      // AI Deep Analysis (one AI-written analysis per student + result numbers)
+      `CREATE TABLE IF NOT EXISTS "ai_analyses" (
+        "id" uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+        "student_id" uuid NOT NULL,
+        "input_hash" varchar(64) NOT NULL,
+        "content" jsonb NOT NULL,
+        "model" varchar(60) NOT NULL,
+        "input_tokens" integer NOT NULL DEFAULT 0,
+        "output_tokens" integer NOT NULL DEFAULT 0,
+        "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+        UNIQUE ("student_id", "input_hash")
+      )`,
+      `CREATE INDEX IF NOT EXISTS "idx_ai_analyses_created" ON "ai_analyses" ("student_id", "created_at")`,
       `CREATE TABLE IF NOT EXISTS "student_folder_items" (
         "id" uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
         "folder_id" uuid NOT NULL,

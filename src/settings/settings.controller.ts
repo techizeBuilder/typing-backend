@@ -108,6 +108,13 @@ export class SettingsController {
     if (key === SETTING_KEYS.REFERRAL_MIN_PAYOUT && !(/^\d{1,6}$/.test(trimmed) && Number(trimmed) >= 1)) {
       throw new BadRequestException('Minimum payout must be a whole number of rupees (at least 1).');
     }
+    // AI Deep Analysis settings.
+    if (key === SETTING_KEYS.AI_ANALYSIS_ENABLED && !['true', 'false'].includes(trimmed)) {
+      throw new BadRequestException('ai_analysis_enabled must be true or false.');
+    }
+    if (key === SETTING_KEYS.AI_DAILY_LIMIT && !(/^\d{1,3}$/.test(trimmed) && Number(trimmed) >= 1 && Number(trimmed) <= 100)) {
+      throw new BadRequestException('Daily AI analyses per student must be a whole number from 1 to 100.');
+    }
     // Screen layout is structured JSON: validate and normalise it.
     if (key === SETTING_KEYS.SCREEN_LAYOUT) {
       return this.service.set(key, sanitizeScreenLayout(trimmed));
