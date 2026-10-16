@@ -115,6 +115,16 @@ export class SettingsController {
     if (key === SETTING_KEYS.AI_DAILY_LIMIT && !(/^\d{1,3}$/.test(trimmed) && Number(trimmed) >= 1 && Number(trimmed) <= 100)) {
       throw new BadRequestException('Daily AI analyses per student must be a whole number from 1 to 100.');
     }
+    // Backup schedule settings.
+    if (key === SETTING_KEYS.BACKUP_SCHEDULE_ENABLED && !['true', 'false'].includes(trimmed)) {
+      throw new BadRequestException('backup_schedule_enabled must be true or false.');
+    }
+    if (key === SETTING_KEYS.BACKUP_TIME && !/^([01]\d|2[0-3]):[0-5]\d$/.test(trimmed)) {
+      throw new BadRequestException('Backup time must be in 24-hour HH:MM format (e.g. 02:00).');
+    }
+    if (key === SETTING_KEYS.BACKUP_KEEP && !(/^\d{1,3}$/.test(trimmed) && Number(trimmed) >= 1 && Number(trimmed) <= 90)) {
+      throw new BadRequestException('Backups to keep must be a whole number from 1 to 90.');
+    }
     // Screen layout is structured JSON: validate and normalise it.
     if (key === SETTING_KEYS.SCREEN_LAYOUT) {
       return this.service.set(key, sanitizeScreenLayout(trimmed));

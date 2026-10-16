@@ -38,6 +38,7 @@ import { ReferralsModule } from './referrals/referrals.module';
 import { ReferralCommission, ReferralPayout } from './entities/referral.entity';
 import { AiAnalysisModule } from './ai-analysis/ai-analysis.module';
 import { AiAnalysis } from './entities/ai-analysis.entity';
+import { BackupModule } from './backup/backup.module';
 import { StudentFavourite, StudentFolder, StudentFolderItem } from './entities/favourite.entity';
 
 // Create DataSource exactly like the working test
@@ -86,6 +87,7 @@ const AppDataSource = new DataSource({
     PlansModule,
     ReferralsModule,
     AiAnalysisModule,
+    BackupModule,
   ],
   controllers: [AppController],
   providers: [AppService, SchemaSyncService],

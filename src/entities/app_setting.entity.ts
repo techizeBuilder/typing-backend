@@ -47,6 +47,10 @@ export const SETTING_KEYS = {
   // AI Deep Analysis (needs ANTHROPIC_API_KEY in the backend .env)
   AI_ANALYSIS_ENABLED: 'ai_analysis_enabled',
   AI_DAILY_LIMIT: 'ai_daily_limit',
+  // Automatic backups (Backup & Restore page)
+  BACKUP_SCHEDULE_ENABLED: 'backup_schedule_enabled',
+  BACKUP_TIME: 'backup_time',
+  BACKUP_KEEP: 'backup_keep',
 } as const;
 
 export const SETTING_DEFAULTS: Record<string, string> = {
@@ -70,4 +74,7 @@ export const SETTING_DEFAULTS: Record<string, string> = {
   [SETTING_KEYS.REFERRAL_MIN_PAYOUT]: '100',
   [SETTING_KEYS.AI_ANALYSIS_ENABLED]: 'true',
   [SETTING_KEYS.AI_DAILY_LIMIT]: '5',
+  [SETTING_KEYS.BACKUP_SCHEDULE_ENABLED]: 'true',
+  [SETTING_KEYS.BACKUP_TIME]: '02:00',
+  [SETTING_KEYS.BACKUP_KEEP]: '7',
 };
