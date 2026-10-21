@@ -151,7 +151,23 @@ export class UsersController {
     delete (userData as any).id;
     assertCanManage(req.user, target, userData);
     cleanStudentExtras(userData);
+    // Switching a student to Single Device starts fresh: the next login binds the device.
+    if (userData.login_type === 'Single' && target.login_type !== 'Single') {
+      Object.assign(userData, { device_id: null, device_info: null, device_bound_at: null });
+    }
     return this.usersService.update(id, userData);
+  }
+
+  // Frees a Single-device student to log in on a new device (the old device's
+  // session ends on its next request).
+  @Post(':id/reset-device')
+  @Roles(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.SUBADMIN)
+  async resetDevice(@Request() req, @Param('id') id: string): Promise<any> {
+    const target = await this.usersService.findById(id);
+    if (!target) throw new NotFoundException('User not found');
+    assertCanManage(req.user, target, {});
+    await this.usersService.update(id, { device_id: null, device_info: null, device_bound_at: null });
+    return { ok: true };
   }
 
   @Delete(':id')

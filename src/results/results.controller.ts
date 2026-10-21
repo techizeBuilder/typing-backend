@@ -90,7 +90,7 @@ export class ResultsController {
     @Query('studentId') studentId: string,
   ) {
     if (!isStaff(req.user) && !isSelf(req.user, studentId)) throw new ForbiddenException('You can only view your own rank.');
-    return this.resultsService.getChapterRank(chapterId, studentId);
+    return this.resultsService.getChapterRank(chapterId, studentId, { staff: isStaff(req.user) });
   }
 
   @Get('user/:userId')

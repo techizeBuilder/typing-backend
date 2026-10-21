@@ -136,7 +136,7 @@ export class SchemaSyncService implements OnApplicationBootstrap {
       `CREATE TABLE IF NOT EXISTS "plans" (
         "id" uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
         "name" varchar(60) NOT NULL,
-        "category" varchar(20) NOT NULL DEFAULT 'all',
+        "category" varchar(80) NOT NULL DEFAULT 'all',
         "tagline" varchar(150),
         "price" integer NOT NULL,
         "original_price" integer,
@@ -236,6 +236,24 @@ export class SchemaSyncService implements OnApplicationBootstrap {
         UNIQUE ("student_id", "input_hash")
       )`,
       `CREATE INDEX IF NOT EXISTS "idx_ai_analyses_created" ON "ai_analyses" ("student_id", "created_at")`,
+      // Result pattern information + result/rank timing (no effect on scoring)
+      `ALTER TABLE "result_patterns" ADD COLUMN IF NOT EXISTS "description" text`,
+      `ALTER TABLE "result_patterns" ADD COLUMN IF NOT EXISTS "applicable_typing" boolean NOT NULL DEFAULT true`,
+      `ALTER TABLE "result_patterns" ADD COLUMN IF NOT EXISTS "applicable_steno" boolean NOT NULL DEFAULT true`,
+      `ALTER TABLE "result_patterns" ADD COLUMN IF NOT EXISTS "is_default" boolean NOT NULL DEFAULT false`,
+      `ALTER TABLE "result_patterns" ADD COLUMN IF NOT EXISTS "live_result_mode" varchar(12) NOT NULL DEFAULT 'immediate'`,
+      `ALTER TABLE "result_patterns" ADD COLUMN IF NOT EXISTS "live_result_time" varchar(5) NOT NULL DEFAULT '21:00'`,
+      `ALTER TABLE "result_patterns" ADD COLUMN IF NOT EXISTS "preload_result_mode" varchar(12) NOT NULL DEFAULT 'immediate'`,
+      `ALTER TABLE "result_patterns" ADD COLUMN IF NOT EXISTS "preload_result_time" varchar(5) NOT NULL DEFAULT '21:00'`,
+      `ALTER TABLE "result_patterns" ADD COLUMN IF NOT EXISTS "live_rank_mode" varchar(16) NOT NULL DEFAULT 'immediate'`,
+      // Student login control: time zone for the fixed login window, single/multiple device
+      `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "login_timezone" varchar(40)`,
+      `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "login_type" varchar(10) NOT NULL DEFAULT 'Multiple'`,
+      `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "device_id" varchar(64)`,
+      `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "device_info" varchar(150)`,
+      `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "device_bound_at" TIMESTAMP`,
+      // Plans may belong to several categories ("typing,english_steno")
+      `ALTER TABLE "plans" ALTER COLUMN "category" TYPE varchar(80)`,
       `CREATE TABLE IF NOT EXISTS "student_folder_items" (
         "id" uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
         "folder_id" uuid NOT NULL,

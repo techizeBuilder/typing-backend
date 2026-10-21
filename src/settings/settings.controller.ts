@@ -136,6 +136,27 @@ export class SettingsController {
     if (key === SETTING_KEYS.BACKUP_KEEP && !(/^\d{1,3}$/.test(trimmed) && Number(trimmed) >= 1 && Number(trimmed) <= 90)) {
       throw new BadRequestException('Backups to keep must be a whole number from 1 to 90.');
     }
+    // Social channel links: absolute http(s) URLs when provided (empty hides the card).
+    if ((key === SETTING_KEYS.TELEGRAM_URL || key === SETTING_KEYS.YOUTUBE_URL) && trimmed && !/^https?:\/\/\S+$/i.test(trimmed)) {
+      throw new BadRequestException('Channel link must start with http:// or https://');
+    }
+    // Policy pages (plain text) and Contact Us details.
+    const pageKeys: string[] = [SETTING_KEYS.PAGE_TERMS, SETTING_KEYS.PAGE_PRIVACY, SETTING_KEYS.PAGE_REFUND];
+    if (pageKeys.includes(key) && trimmed.length > 20000) {
+      throw new BadRequestException('Page text must be at most 20,000 characters.');
+    }
+    if (key === SETTING_KEYS.CONTACT_PHONE && trimmed && !/^\+?[\d\s-]{7,20}$/.test(trimmed)) {
+      throw new BadRequestException('Enter a valid phone number (digits, optional +).');
+    }
+    if (key === SETTING_KEYS.CONTACT_EMAIL && trimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      throw new BadRequestException('Enter a valid email address.');
+    }
+    if (key === SETTING_KEYS.CONTACT_ADDRESS && trimmed.length > 500) {
+      throw new BadRequestException('Address must be at most 500 characters.');
+    }
+    if (key === SETTING_KEYS.CONTACT_HOURS && trimmed.length > 200) {
+      throw new BadRequestException('Office hours must be at most 200 characters.');
+    }
     // Screen layout is structured JSON: validate and normalise it.
     if (key === SETTING_KEYS.SCREEN_LAYOUT) {
       return this.service.set(key, sanitizeScreenLayout(trimmed));

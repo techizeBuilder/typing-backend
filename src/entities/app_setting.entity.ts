@@ -1,4 +1,5 @@
 import { Entity, Column, PrimaryColumn, UpdateDateColumn } from 'typeorm';
+import { DEFAULT_PRIVACY, DEFAULT_REFUND, DEFAULT_TERMS } from '../settings/default-policies';
 
 // Generic key/value store for global admin settings (e.g. the live-test rank
 // update time). Kept as a flat key/value table so new settings can be added
@@ -51,6 +52,17 @@ export const SETTING_KEYS = {
   BACKUP_SCHEDULE_ENABLED: 'backup_schedule_enabled',
   BACKUP_TIME: 'backup_time',
   BACKUP_KEEP: 'backup_keep',
+  // Social channels (student Home banners + sidebar cards; hidden while blank)
+  TELEGRAM_URL: 'telegram_url',
+  YOUTUBE_URL: 'youtube_url',
+  // Public policy pages (plain text, edited on the Settings page) and Contact Us details
+  PAGE_TERMS: 'page_terms',
+  PAGE_PRIVACY: 'page_privacy',
+  PAGE_REFUND: 'page_refund',
+  CONTACT_PHONE: 'contact_phone',
+  CONTACT_EMAIL: 'contact_email',
+  CONTACT_ADDRESS: 'contact_address',
+  CONTACT_HOURS: 'contact_hours',
 } as const;
 
 export const SETTING_DEFAULTS: Record<string, string> = {
@@ -77,4 +89,13 @@ export const SETTING_DEFAULTS: Record<string, string> = {
   [SETTING_KEYS.BACKUP_SCHEDULE_ENABLED]: 'true',
   [SETTING_KEYS.BACKUP_TIME]: '02:00',
   [SETTING_KEYS.BACKUP_KEEP]: '7',
+  [SETTING_KEYS.TELEGRAM_URL]: '',
+  [SETTING_KEYS.YOUTUBE_URL]: '',
+  [SETTING_KEYS.PAGE_TERMS]: DEFAULT_TERMS,
+  [SETTING_KEYS.PAGE_PRIVACY]: DEFAULT_PRIVACY,
+  [SETTING_KEYS.PAGE_REFUND]: DEFAULT_REFUND,
+  [SETTING_KEYS.CONTACT_PHONE]: '',
+  [SETTING_KEYS.CONTACT_EMAIL]: '',
+  [SETTING_KEYS.CONTACT_ADDRESS]: '',
+  [SETTING_KEYS.CONTACT_HOURS]: '',
 };

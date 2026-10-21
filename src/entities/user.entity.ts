@@ -81,6 +81,24 @@ export class User {
   @Column({ nullable: true })
   allowed_login_time_end: string;
 
+  // Time zone the fixed login window is checked in (null = India time).
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  login_timezone: string | null;
+
+  // 'Multiple' (default) or 'Single'. A Single-device student is locked to the
+  // first device they log in on until an admin resets it.
+  @Column({ type: 'varchar', length: 10, default: 'Multiple' })
+  login_type: string;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  device_id: string | null;
+
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  device_info: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  device_bound_at: Date | null;
+
   @Column({ nullable: true })
   profile_image: string;
 

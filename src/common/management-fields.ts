@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { isValidTimeZone } from './zoned-time';
 
 // Validation for the optional management fields added in 8.18 (students, exams,
 // tests and flash banners). Empty strings become null so a field can be cleared.
@@ -30,6 +31,19 @@ export function cleanStudentExtras(d: any) {
   pattern(d, 'email', /^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Enter a valid email address.');
   pattern(d, 'pin_code', /^\d{6}$/, 'Pin code must be 6 digits.');
   pattern(d, 'guardian_phone', /^\+?\d{10,13}$/, 'Guardian mobile must be 10 digits.');
+  // Login control. The bound device is never set through this route: it is
+  // recorded at login and cleared with POST /users/:id/reset-device.
+  delete d.device_id; delete d.device_info; delete d.device_bound_at;
+  if (d.login_type !== undefined) {
+    if (d.login_type === null || d.login_type === '') d.login_type = 'Multiple';
+    if (!['Single', 'Multiple'].includes(d.login_type)) throw new BadRequestException('Login type must be Single or Multiple.');
+  }
+  text(d, 'login_timezone', 40, 'Time zone');
+  if (d.login_timezone && !isValidTimeZone(d.login_timezone)) throw new BadRequestException('Unknown time zone.');
+  for (const k of ['allowed_login_time_start', 'allowed_login_time_end']) {
+    text(d, k, 8, 'Login time');
+    pattern(d, k, /^([01]?\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/, 'Login times must be in HH:MM format.');
+  }
 }
 
 export function cleanExamInfo(d: any) {

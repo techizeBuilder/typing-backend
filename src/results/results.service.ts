@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Result } from '../entities/result.entity';
 import { User } from '../entities/user.entity';
+import { zonedNow } from '../common/zoned-time';
 import { SettingsService } from '../settings/settings.service';
 import { computeResultMetrics } from './result-metrics';
 
@@ -267,7 +268,7 @@ export class ResultsService implements OnModuleInit {
 
   // Rank of a specific student inside a chapter's leaderboard, ranked by
   // best NWPM (tie-broken by accuracy desc, then earliest date).
-  async getChapterRank(chapterId: string, studentId: string): Promise<{ rank: number | null; total: number; best: Result | null }> {
+  async getChapterRank(chapterId: string, studentId: string, opts: { staff?: boolean } = {}): Promise<{ rank: number | null; total: number; best: Result | null; pending_until?: string }> {
     if (!chapterId || !studentId) return { rank: null, total: 0, best: null };
     let uuid = studentId;
     if (!UUID_RE.test(studentId)) {
@@ -281,6 +282,12 @@ export class ResultsService implements OnModuleInit {
       order: { date_taken: 'ASC' },
     });
     if (rows.length === 0) return { rank: null, total: 0, best: null };
+    // Pattern "Show Rank: After Live Test Session End": students see no rank until
+    // the test's day is over (India time). Staff always see it.
+    if (!opts.staff && rows[0].exam?.result_pattern?.live_rank_mode === 'after_session') {
+      const [chapter] = await this.resultsRepository.manager.query(`SELECT to_char(test_date, 'YYYY-MM-DD') AS d FROM chapters WHERE id = $1`, [chapterId]);
+      if (chapter?.d && zonedNow().date <= chapter.d) return { rank: null, total: 0, best: null, pending_until: chapter.d };
+    }
     // Reduce to one best row per student
     const bestByStudent = new Map<string, Result>();
     for (const r of rows) {

@@ -25,7 +25,8 @@ export class AuthController {
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    const result = await this.authService.login(user);
+    const deviceId = await this.authService.checkDevice(user, loginData.device_id, loginData.device_info);
+    const result = await this.authService.login(user, deviceId);
     return {
       success: true,
       message: 'Login successful',

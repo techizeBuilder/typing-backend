@@ -76,9 +76,15 @@ export class PlansService {
       out.tagline = t || null;
     }
     if (has('category') || !partial) {
-      const c = body?.category ?? 'all';
-      if (!PLAN_CATEGORIES.includes(c)) throw new BadRequestException(`category must be one of: ${PLAN_CATEGORIES.join(', ')}.`);
-      out.category = c;
+      // One or more categories: an array or "typing,english_steno". "all" (All
+      // Access), or every single category ticked, is stored as "all".
+      const raw = body?.category ?? 'all';
+      const list = [...new Set((Array.isArray(raw) ? raw : String(raw).split(',')).map((x: any) => String(x).trim()).filter(Boolean))];
+      if (!list.length || list.some((c) => !PLAN_CATEGORIES.includes(c as any))) {
+        throw new BadRequestException(`category must be one or more of: ${PLAN_CATEGORIES.join(', ')}.`);
+      }
+      const singles = PLAN_CATEGORIES.filter((c) => c !== 'all');
+      out.category = list.includes('all') || singles.every((c) => list.includes(c)) ? 'all' : singles.filter((c) => list.includes(c)).join(',');
     }
     int('price', 0, 1000000);
     int('original_price', 0, 1000000, true);

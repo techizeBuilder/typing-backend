@@ -1,10 +1,11 @@
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor, StreamableFile } from '@nestjs/common';
 import { map } from 'rxjs/operators';
 
-// Removes password hashes from every API response, however deeply nested (e.g.
+// Removes password hashes (and device lock keys) from every API response, however deeply nested (e.g.
 // a result's joined user). Endpoints should not select them in the first place;
 // this is the safety net.
-const SECRET_KEYS = ['password_hash'];
+// device_id is the Single-device lock key: admins only need device_info / device_bound_at.
+const SECRET_KEYS = ['password_hash', 'device_id'];
 
 function strip(value: any, seen: WeakSet<object>): void {
   if (!value || typeof value !== 'object' || seen.has(value)) return;

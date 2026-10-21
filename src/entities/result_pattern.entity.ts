@@ -23,6 +23,41 @@ export class ResultPattern {
   @Column({ unique: true })
   name: string; // "Result Name" in screenshot
 
+  // ── Pattern information and result/rank timing. None of these change how a
+  // result is calculated; they only label the pattern and decide when students
+  // may see their result and rank. Columns added by SchemaSyncService.
+  @Column({ type: 'text', nullable: true })
+  description: string | null;
+
+  @Column({ default: true })
+  applicable_typing: boolean;
+
+  @Column({ default: true })
+  applicable_steno: boolean;
+
+  // Pre-selected when a new exam is created (at most one pattern).
+  @Column({ default: false })
+  is_default: boolean;
+
+  // 'immediate' | 'scheduled' — scheduled = shown from `*_result_time` (HH:MM, India time)
+  // on the day of the attempt; attempts made after that time wait for the next day's.
+  @Column({ type: 'varchar', length: 12, default: 'immediate' })
+  live_result_mode: string;
+
+  @Column({ type: 'varchar', length: 5, default: '21:00' })
+  live_result_time: string;
+
+  @Column({ type: 'varchar', length: 12, default: 'immediate' })
+  preload_result_mode: string;
+
+  @Column({ type: 'varchar', length: 5, default: '21:00' })
+  preload_result_time: string;
+
+  // 'immediate' | 'after_session' — after_session = live test rank appears once the
+  // test's day (its live session) is over.
+  @Column({ type: 'varchar', length: 16, default: 'immediate' })
+  live_rank_mode: string;
+
   @Column({ default: SpeedCountType.WORDS })
   speed_count: SpeedCountType;
 

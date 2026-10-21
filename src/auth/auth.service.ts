@@ -3,6 +3,7 @@ import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { User, UserRole, UserStatus } from '../entities/user.entity';
+import { DEFAULT_TIME_ZONE, inWindow, zonedNow } from '../common/zoned-time';
 
 @Injectable()
 export class AuthService {
@@ -19,15 +20,11 @@ export class AuthService {
     const user = await this.usersService.findOneRaw(username);
     if (user && (await bcrypt.compare(pass, user.password_hash))) {
 
-      // Check for allowed time slots (numeric comparison to avoid string edge-cases)
+      // Fixed login window, checked on the student's time zone (India time by
+      // default, not the server clock). Windows may cross midnight.
       if (user.role === 'Student' && user.allowed_login_time_start && user.allowed_login_time_end) {
-        const now = new Date();
-        const currentMinutes = now.getHours() * 60 + now.getMinutes();
-        const [startH, startM] = user.allowed_login_time_start.split(':').map(Number);
-        const [endH, endM] = user.allowed_login_time_end.split(':').map(Number);
-        const startMinutes = startH * 60 + startM;
-        const endMinutes = endH * 60 + endM;
-        if (currentMinutes < startMinutes || currentMinutes > endMinutes) {
+        const { minutes } = zonedNow(new Date(), user.login_timezone || DEFAULT_TIME_ZONE);
+        if (!inWindow(minutes, user.allowed_login_time_start, user.allowed_login_time_end)) {
             throw new UnauthorizedException(`Login blocked. Please login between ${user.allowed_login_time_start} and ${user.allowed_login_time_end}`);
         }
       }
@@ -51,8 +48,26 @@ export class AuthService {
     return new Date() > endDate;
   }
 
-  async login(user: any) {
+  // Single-device students: the first device that logs in is recorded; any other
+  // device is refused until an admin resets it. Apps that do not send a device id
+  // (older versions) cannot be checked, so they are refused for these students.
+  async checkDevice(user: any, deviceId: unknown, deviceInfo: unknown): Promise<string | null> {
+    if (user.role !== 'Student' || user.login_type !== 'Single') return null;
+    const id = typeof deviceId === 'string' && /^[A-Za-z0-9-]{16,64}$/.test(deviceId) ? deviceId : null;
+    if (!id) throw new UnauthorizedException('This account can only be used on one registered device. Please update the app to the latest version and try again.');
+    if (user.device_id && user.device_id !== id) {
+      throw new UnauthorizedException('This account is registered on another device. Please contact the institute to use it on this device.');
+    }
+    if (!user.device_id) {
+      const info = typeof deviceInfo === 'string' ? deviceInfo.slice(0, 150) : null;
+      await this.usersService.update(user.id, { device_id: id, device_info: info, device_bound_at: new Date() });
+    }
+    return id;
+  }
+
+  async login(user: any, deviceId: string | null = null) {
     const payload = {
+      did: deviceId || undefined,
       username: user.user_id,
       sub: user.id,
       role: user.role,

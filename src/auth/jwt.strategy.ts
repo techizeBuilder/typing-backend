@@ -23,6 +23,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (user.role === 'Student' ? user.status !== 'Active' : user.status === 'Inactive') {
       throw new UnauthorizedException('Your account is inactive. Please contact the administrator.');
     }
+    // Single-device students: a session from any device other than the
+    // registered one ends (e.g. after an admin reset and a login elsewhere).
+    if (user.role === 'Student' && user.login_type === 'Single' && user.device_id && payload.did !== user.device_id) {
+      throw new UnauthorizedException('This account is now registered on another device. Please contact the institute.');
+    }
     // Role and permissions come from the database, not the token, so a role
     // change or a deactivation takes effect on the next request.
     return { userId: user.id, username: user.user_id, role: user.role, permissions: user.permissions || [] };

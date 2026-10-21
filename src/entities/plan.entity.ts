@@ -14,7 +14,8 @@ export class Plan {
   @Column({ type: 'varchar', length: 60 })
   name: string;
 
-  @Column({ type: 'varchar', length: 20, default: 'all' })
+  // One or more of PLAN_CATEGORIES joined by commas ("typing,english_steno"), or "all".
+  @Column({ type: 'varchar', length: 80, default: 'all' })
   category: string;
 
   @Column({ type: 'varchar', length: 150, nullable: true })
