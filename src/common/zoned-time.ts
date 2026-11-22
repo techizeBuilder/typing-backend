@@ -35,3 +35,40 @@ export function inWindow(minutes: number, start: string, end: string): boolean {
   const e = toMinutes(end);
   return s <= e ? minutes >= s && minutes <= e : minutes >= s || minutes <= e;
 }
+
+const pad = (n: number) => String(n).padStart(2, '0');
+
+// The instant at which the wall clock in `tz` shows `date` (YYYY-MM-DD) plus
+// `minutes` after midnight. Works whatever time zone the server itself runs in.
+export function zonedToUtc(date: string, minutes: number, tz: string = DEFAULT_TIME_ZONE): Date {
+  const [y, mo, d] = String(date).slice(0, 10).split('-').map(Number);
+  const guess = Date.UTC(y, mo - 1, d, 0, minutes);
+  const wall = zonedNow(new Date(guess), tz);
+  const [wy, wmo, wd] = wall.date.split('-').map(Number);
+  const offset = Date.UTC(wy, wmo - 1, wd, 0, wall.minutes) - guess;
+  return new Date(guess - offset);
+}
+
+// First and last millisecond of a calendar day in `tz`.
+export const zonedDayStart = (date: string, tz: string = DEFAULT_TIME_ZONE): Date => zonedToUtc(date, 0, tz);
+export const zonedDayEnd = (date: string, tz: string = DEFAULT_TIME_ZONE): Date => new Date(zonedToUtc(addDays(date, 1), 0, tz).getTime() - 1);
+
+// YYYY-MM-DD `n` days after `date` (calendar arithmetic, no time zone involved).
+export function addDays(date: string, n: number): string {
+  const [y, mo, d] = String(date).slice(0, 10).split('-').map(Number);
+  const t = new Date(Date.UTC(y, mo - 1, d + n));
+  return `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())}`;
+}
+
+// Calendar date of an instant in `tz`.
+export const zonedDate = (at: Date | string, tz: string = DEFAULT_TIME_ZONE): string => zonedNow(new Date(at), tz).date;
+
+// A YYYY-MM-DD column value (string, or Date when set in code) as a date string.
+export const dateOnly = (v: Date | string): string => (typeof v === 'string' ? v.slice(0, 10) : v.toISOString().slice(0, 10));
+
+// True once a validity end date is in the past, India time: the student keeps
+// access for the whole of the end date.
+export function validityEnded(validityEnd: Date | string | null | undefined, now: Date = new Date()): boolean {
+  if (!validityEnd) return false;
+  return zonedNow(now).date > dateOnly(validityEnd);
+}

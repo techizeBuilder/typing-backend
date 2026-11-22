@@ -1,8 +1,9 @@
-import { Injectable, OnModuleInit, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, OnModuleInit, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User, UserStatus } from '../entities/user.entity';
 import * as bcrypt from 'bcrypt';
+import { validityEnded } from '../common/zoned-time';
 
 @Injectable()
 export class UsersService implements OnModuleInit {
@@ -31,13 +32,8 @@ export class UsersService implements OnModuleInit {
 
   private applyDynamicStatus(user: User | null): User | null {
     if (!user) return user;
-    if (user.status === UserStatus.ACTIVE && user.validity_end) {
-      const now = new Date();
-      const endDate = new Date(user.validity_end);
-      endDate.setHours(23, 59, 59, 999);
-      if (now > endDate) {
-        user.status = UserStatus.INACTIVE;
-      }
+    if (user.status === UserStatus.ACTIVE && validityEnded(user.validity_end)) {
+      user.status = UserStatus.INACTIVE;
     }
     return user;
   }
@@ -86,21 +82,23 @@ export class UsersService implements OnModuleInit {
       const detail = err?.message || String(err);
       if (err?.code === '23505') {
         // Postgres unique_violation — phone or user_id already exists.
-        throw new InternalServerErrorException(
-          `Could not create staff member: a user with this phone number or login ID already exists.`,
-        );
+        throw new ConflictException('A user with this phone number or login ID already exists.');
       }
       throw new InternalServerErrorException(`Create failed: ${detail}`);
     }
   }
 
   async update(id: string, userData: Partial<User>): Promise<any> {
+    // A blank password means "keep the current one" — never store an empty hash,
+    // which would lock the account out.
+    if (userData.password_hash !== undefined && !String(userData.password_hash ?? '').trim()) delete userData.password_hash;
     if (userData.password_hash) {
       userData.password_hash = await bcrypt.hash(userData.password_hash, 10);
     }
     try {
       return await this.usersRepository.update(id, userData);
     } catch (err) {
+      if (err?.code === '23505') throw new ConflictException('A user with this phone number or login ID already exists.');
       const detail = err?.message || String(err);
       throw new InternalServerErrorException(`Update failed: ${detail}`);
     }

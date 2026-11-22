@@ -10,6 +10,7 @@ import { Result } from '../entities/result.entity';
 import { User, UserRole } from '../entities/user.entity';
 import { SettingsService } from '../settings/settings.service';
 import { SETTING_KEYS } from '../entities/app_setting.entity';
+import { zonedDate, zonedDayStart } from '../common/zoned-time';
 
 const MODEL = 'claude-opus-5-5';
 
@@ -77,8 +78,8 @@ export class AiAnalysisService {
   }
 
   private async usedToday(userId: string) {
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
+    // "Today" is the India calendar day, whatever time zone the server runs in.
+    const start = zonedDayStart(zonedDate(new Date()));
     return this.analyses.count({ where: { student_id: userId, created_at: MoreThanOrEqual(start) } });
   }
 
@@ -166,8 +167,7 @@ export class AiAnalysisService {
       .addSelect('COALESCE(SUM(a.input_tokens), 0)', 'input_tokens')
       .addSelect('COALESCE(SUM(a.output_tokens), 0)', 'output_tokens')
       .getRawOne();
-    const start = new Date();
-    start.setDate(1); start.setHours(0, 0, 0, 0);
+    const start = zonedDayStart(`${zonedDate(new Date()).slice(0, 8)}01`);
     const month = await this.analyses.count({ where: { created_at: MoreThanOrEqual(start) } });
     return { total: Number(rows?.count || 0), this_month: month, input_tokens: Number(rows?.input_tokens || 0), output_tokens: Number(rows?.output_tokens || 0), model: MODEL, configured: !!process.env.ANTHROPIC_API_KEY };
   }

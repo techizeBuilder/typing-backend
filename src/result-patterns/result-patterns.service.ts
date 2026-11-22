@@ -3,6 +3,40 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ResultPattern } from '../entities/result_pattern.entity';
 
+const oneOf = (data: any, key: string, allowed: string[], label: string) => {
+  if (data[key] === undefined) return;
+  if (!allowed.includes(data[key])) throw new BadRequestException(`${label} must be one of: ${allowed.join(', ')}.`);
+};
+const numberIn = (data: any, key: string, min: number, max: number, label: string) => {
+  if (data[key] === undefined) return;
+  const n = typeof data[key] === 'string' && data[key].trim() === '' ? NaN : Number(data[key]);
+  if (!Number.isFinite(n) || n < min || n > max) throw new BadRequestException(`${label} must be a number from ${min} to ${max}.`);
+  data[key] = n;
+};
+const SCORING_FLAGS = ['half_mistake_enabled', 'count_right_words_only', 'count_omissions_as_errors', 'ignorable_mistakes_enabled'];
+
+// Validates every field that changes a score, so a pattern can never produce an
+// impossible result (negative penalty, accuracy over 100, unknown speed unit…).
+export function cleanScoring(data: any, partial: boolean) {
+  if (data.name !== undefined || !partial) {
+    const name = String(data.name ?? '').trim();
+    if (!name) throw new BadRequestException('Result Name is required.');
+    if (name.length > 100) throw new BadRequestException('Result Name must be at most 100 characters.');
+    data.name = name;
+  }
+  oneOf(data, 'speed_count', ['Words', 'Strokes'], 'Speed Count');
+  oneOf(data, 'qualify_on', ['NWPM', 'GWPM'], 'Qualify on');
+  oneOf(data, 'penalty_type', ['Word', 'Stroke'], 'Penalty');
+  oneOf(data, 'transposition_mistake', ['none', 'half', 'full'], 'Transposition');
+  numberIn(data, 'penalty_value', 0, 100, 'How Much Penalty');
+  numberIn(data, 'required_speed', 0, 500, 'Qualifying Speed');
+  numberIn(data, 'required_accuracy', 0, 100, 'Qualifying Accuracy');
+  numberIn(data, 'ignorable_mistakes_percent', 0, 100, 'Ignorable Allowance');
+  numberIn(data, 'ignorable_penalty_words_per_mistake', 0, 100, 'Words Deducted per Excess Mistake');
+  for (const k of SCORING_FLAGS) if (data[k] !== undefined) data[k] = data[k] === true || data[k] === 'true';
+  for (const k of Object.keys(data)) if (k.startsWith('show_')) data[k] = data[k] === true || data[k] === 'true';
+}
+
 @Injectable()
 export class ResultPatternsService implements OnModuleInit {
   private readonly logger = new Logger(ResultPatternsService.name);
@@ -56,6 +90,9 @@ export class ResultPatternsService implements OnModuleInit {
     try {
       await this.patternRepository.query(
         `ALTER TABLE result_patterns ADD COLUMN IF NOT EXISTS count_omissions_as_errors BOOLEAN NOT NULL DEFAULT true`,
+      );
+      await this.patternRepository.query(
+        `ALTER TABLE result_patterns ADD COLUMN IF NOT EXISTS transposition_mistake VARCHAR(10) NOT NULL DEFAULT 'none'`,
       );
     } catch (err) {
       this.logger.warn(`Could not add count_omissions_as_errors column: ${err?.message || err}`);
@@ -142,6 +179,10 @@ export class ResultPatternsService implements OnModuleInit {
     if (has('live_rank_mode') && !['immediate', 'after_session'].includes(data.live_rank_mode)) {
       throw new BadRequestException('live_rank_mode must be immediate or after_session.');
     }
+    cleanScoring(data, partial);
+    // Only real columns reach the database (an unknown key made TypeORM fail with a 500).
+    const columns = new Set(this.patternRepository.metadata.columns.map((c) => c.propertyName));
+    for (const k of Object.keys(data)) if (!columns.has(k)) delete data[k];
     return data;
   }
 

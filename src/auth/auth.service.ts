@@ -3,7 +3,7 @@ import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { User, UserRole, UserStatus } from '../entities/user.entity';
-import { DEFAULT_TIME_ZONE, inWindow, zonedNow } from '../common/zoned-time';
+import { DEFAULT_TIME_ZONE, inWindow, validityEnded, zonedNow } from '../common/zoned-time';
 
 @Injectable()
 export class AuthService {
@@ -42,10 +42,8 @@ export class AuthService {
 
   /** True once a Student's validity_end has passed — feature/content gate only, never a login gate. */
   private isPremiumExpired(user: User): boolean {
-    if (user.role !== 'Student' || !user.validity_end) return false;
-    const endDate = new Date(user.validity_end);
-    endDate.setHours(23, 59, 59, 999);
-    return new Date() > endDate;
+    if (user.role !== 'Student') return false;
+    return validityEnded(user.validity_end);
   }
 
   // Single-device students: the first device that logs in is recorded; any other

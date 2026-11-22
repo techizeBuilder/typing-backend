@@ -84,6 +84,10 @@ export class Chapter {
   @Column({ type: 'text', nullable: true })
   description: string | null;
 
+  // Optional group heading on the student dictation list ("Volume 1")
+  @Column({ type: 'varchar', length: 60, nullable: true })
+  volume: string | null;
+
   // Inactive tests are hidden from students without deleting them or their results
   @Column({ default: true })
   is_active: boolean;

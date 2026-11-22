@@ -96,6 +96,16 @@ export class Exam {
   @Column({ type: 'varchar', length: 200, nullable: true })
   mistake_policy: string | null;
 
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  exam_level: string | null;
+
+  // Steno exam cards: comma-separated chips ("840 Words, All Speeds") and the PRO LEVEL ribbon
+  @Column({ type: 'varchar', length: 300, nullable: true })
+  card_tags: string | null;
+
+  @Column({ default: false })
+  is_pro_level: boolean;
+
   // Inactive exams are hidden from students without deleting them or their results
   @Column({ default: true })
   is_active: boolean;

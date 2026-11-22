@@ -132,6 +132,10 @@ export class ResultPattern {
   @Column({ default: true })
   count_omissions_as_errors: boolean;
 
+  // Steno: words typed in swapped order count as no / half / full mistake
+  @Column({ type: 'varchar', length: 10, default: 'none' })
+  transposition_mistake: string;
+
   @CreateDateColumn()
   created_at: Date;
 

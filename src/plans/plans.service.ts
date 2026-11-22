@@ -4,18 +4,16 @@ import { DataSource, In, Repository } from 'typeorm';
 import { Plan, PlanSubscription, PLAN_CATEGORIES } from '../entities/plan.entity';
 import { User, UserRole } from '../entities/user.entity';
 import { ReferralsService } from '../referrals/referrals.service';
+import { addDays, zonedDate } from '../common/zoned-time';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_PENDING = 3;
 
-// Local calendar date helpers (validity dates are plain dates).
-const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-const addDays = (date: string, days: number) => {
-  const [y, m, d] = date.split('-').map(Number);
-  return ymd(new Date(y, m - 1, d + days));
-};
-const today = () => ymd(new Date());
-const dateOnly = (v: any) => (v ? (typeof v === 'string' ? v.slice(0, 10) : ymd(new Date(v))) : null);
+// Calendar dates on India time (validity dates are plain dates), whatever time
+// zone the server runs in.
+const ymd = (d: Date) => zonedDate(d);
+const today = () => zonedDate(new Date());
+const dateOnly = (v: any) => (v ? (typeof v === 'string' ? v.slice(0, 10) : zonedDate(v)) : null);
 
 @Injectable()
 export class PlansService {

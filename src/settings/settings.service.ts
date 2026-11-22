@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AppSetting, SETTING_DEFAULTS, SETTING_KEYS } from '../entities/app_setting.entity';
+import { addDays, zonedDate, zonedToUtc } from '../common/zoned-time';
 
 @Injectable()
 export class SettingsService implements OnModuleInit {
@@ -76,12 +77,10 @@ export class SettingsService implements OnModuleInit {
     const hh = m ? Math.min(23, parseInt(m[1], 10)) : 21;
     const mm = m ? Math.min(59, parseInt(m[2], 10)) : 0;
 
-    const cutoff = new Date(now);
-    cutoff.setHours(hh, mm, 0, 0);
+    // HH:MM is India time, whatever time zone the server runs in.
+    const today = zonedDate(now);
+    const cutoff = zonedToUtc(today, hh * 60 + mm);
     // If today's update time hasn't passed yet, the last publish was yesterday's.
-    if (cutoff.getTime() > now.getTime()) {
-      cutoff.setDate(cutoff.getDate() - 1);
-    }
-    return cutoff;
+    return cutoff.getTime() > now.getTime() ? zonedToUtc(addDays(today, -1), hh * 60 + mm) : cutoff;
   }
 }

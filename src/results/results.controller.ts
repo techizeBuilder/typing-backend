@@ -143,6 +143,16 @@ export class ResultsController {
     return row;
   }
 
+  // A steno attempt below 30% accuracy can be removed by its student or an admin.
+  // Declared after DELETE cleanup so that static path keeps priority.
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard)
+  async remove(@Request() req, @Param('id') id: string): Promise<{ deleted: boolean }> {
+    if (req.user?.role === UserRole.SUBADMIN) throw new ForbiddenException('Sub-admins cannot delete results.');
+    await this.resultsService.deleteLowScoreSteno(id, { userId: req.user.userId, staff: isStaff(req.user) });
+    return { deleted: true };
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard)
   async create(@Request() req, @Body() resultData: Partial<Result>): Promise<Result> {

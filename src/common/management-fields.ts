@@ -51,6 +51,9 @@ export function cleanExamInfo(d: any) {
   text(d, 'display_title', 150, 'Display title');
   text(d, 'conducted_by', 150, 'Conducted by');
   text(d, 'mistake_policy', 200, 'Mistake policy');
+  text(d, 'exam_level', 150, 'Exam level');
+  text(d, 'card_tags', 300, 'Card tags');
+  bool(d, 'is_pro_level');
   bool(d, 'is_active');
 }
 
@@ -58,6 +61,7 @@ export function cleanChapterInfo(d: any) {
   if (!d) return;
   text(d, 'name', 150, 'Test title');
   text(d, 'description', 500, 'Description');
+  text(d, 'volume', 60, 'Volume');
   bool(d, 'is_active');
 }
 

@@ -1,9 +1,9 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Result } from '../entities/result.entity';
 import { User } from '../entities/user.entity';
-import { zonedNow } from '../common/zoned-time';
+import { zonedDate, zonedDayEnd, zonedDayStart, zonedNow } from '../common/zoned-time';
 import { SettingsService } from '../settings/settings.service';
 import { computeResultMetrics } from './result-metrics';
 
@@ -118,7 +118,7 @@ export class ResultsService implements OnModuleInit {
       .leftJoin('result.exam', 'exam')
       .addSelect(['exam.id', 'exam.name', 'exam.test_time_minutes'])
       .leftJoin('result.chapter', 'chapter')
-      .addSelect(['chapter.id', 'chapter.chapter_no', 'chapter.name', 'chapter.difficulty'])
+      .addSelect(['chapter.id', 'chapter.chapter_no', 'chapter.name', 'chapter.difficulty', 'chapter.steno_speed'])
       .orderBy('result.date_taken', 'DESC');
     this.applyFilters(qb, opts);
 
@@ -126,7 +126,34 @@ export class ResultsService implements OnModuleInit {
     if (opts.pageSize > 0) {
       qb.skip(Math.max(0, opts.page - 1) * opts.pageSize).take(opts.pageSize);
     }
-    return { rows: await qb.getMany(), total };
+    const rows = await qb.getMany();
+    if (opts.kind === 'steno') await this.attachAttemptNumbers(rows);
+    return { rows, total };
+  }
+
+  // Attempt number of each result on its dictation, oldest first (steno result cards).
+  private async attachAttemptNumbers(rows: Result[]) {
+    const chapterIds = [...new Set(rows.map((r) => r.chapter_id).filter(Boolean))];
+    if (chapterIds.length === 0) return;
+    const numbers = await this.resultsRepository.query(
+      `SELECT id, ROW_NUMBER() OVER (PARTITION BY student_id, chapter_id ORDER BY date_taken) AS attempt_no
+       FROM results WHERE chapter_id = ANY($1::uuid[])`,
+      [chapterIds],
+    );
+    const byId = new Map<string, number>(numbers.map((n: any) => [n.id, Number(n.attempt_no)]));
+    rows.forEach((r: any) => { r.attempt_no = byId.get(r.id) ?? 1; });
+  }
+
+  // Low-scoring steno attempts can be removed; every other result is permanent.
+  async deleteLowScoreSteno(id: string, user: { userId: string; staff: boolean }): Promise<void> {
+    const row = await this.resultsRepository.findOne({ where: { id } });
+    if (!row) throw new NotFoundException('Result not found.');
+    if (!user.staff && row.student_id !== user.userId) throw new ForbiddenException('You can only delete your own results.');
+    const m = computeResultMetrics(row);
+    if (!m.percentBased) throw new BadRequestException('Only steno results can be deleted.');
+    if (m.accuracy >= 30) throw new BadRequestException('Only attempts with accuracy below 30% can be deleted.');
+    await this.resultsRepository.delete(id);
+    this.logger.log(`Deleted steno result ${id} (accuracy ${m.accuracy}%)`);
   }
 
   // Filters shared by the admin results list and its statistics.
@@ -137,16 +164,9 @@ export class ResultsService implements OnModuleInit {
         search: `%${opts.search}%`,
       });
     }
-    if (opts.from) {
-      const start = new Date(opts.from);
-      start.setHours(0, 0, 0, 0);
-      qb.andWhere('result.date_taken >= :from', { from: start });
-    }
-    if (opts.to) {
-      const end = new Date(opts.to);
-      end.setHours(23, 59, 59, 999);
-      qb.andWhere('result.date_taken <= :to', { to: end });
-    }
+    // From / To are India calendar days, whatever time zone the server runs in.
+    if (opts.from) qb.andWhere('result.date_taken >= :from', { from: zonedDayStart(opts.from) });
+    if (opts.to) qb.andWhere('result.date_taken <= :to', { to: zonedDayEnd(opts.to) });
     // category holds one or more courses ("Typing English, Steno Hindi"): match any of them.
     if (opts.course) qb.andWhere("(:course = ANY(string_to_array(regexp_replace(COALESCE(user.category, ''), '\\s*,\\s*', ',', 'g'), ',')))", { course: opts.course });
     if (opts.testType) qb.andWhere('result.test_type = :testType', { testType: opts.testType });
@@ -184,10 +204,8 @@ export class ResultsService implements OnModuleInit {
       const rows = await qb.skip(offset).take(BATCH).getMany();
       for (const r of rows) {
         const m = computeResultMetrics(r);
-        const p: any = r.pattern_data || {};
-        // Same rule as the result screen (ResultScreen.jsx isQualified).
-        const speed = (p.qualify_on ?? 'NWPM') === 'GWPM' ? m.gwpm : m.nwpm;
-        const qualified = speed >= (p.required_speed ?? 30) && m.accuracy >= (p.required_accuracy ?? 95);
+        // Same rule as the result page (utils/scoring.js, driven by the stored pattern).
+        const qualified = m.qualified;
         acc.total += 1; acc.gwpm += m.gwpm; acc.nwpm += m.nwpm; acc.accuracy += m.accuracy;
         if (qualified) acc.qualified += 1;
         if ((r.mode || '').toLowerCase().includes('steno')) acc.steno += 1; else acc.typing += 1;
@@ -196,7 +214,7 @@ export class ResultsService implements OnModuleInit {
         const level = (r as any).chapter?.difficulty || 'Not set';
         const d = (difficulty[level] = difficulty[level] || { count: 0, nwpm: 0 });
         d.count += 1; d.nwpm += m.nwpm;
-        const day = new Date(r.date_taken).toISOString().slice(0, 10);
+        const day = zonedDate(r.date_taken);
         const x = (daily[day] = daily[day] || { count: 0, gwpm: 0, nwpm: 0, accuracy: 0, qualified: 0 });
         x.count += 1; x.gwpm += m.gwpm; x.nwpm += m.nwpm; x.accuracy += m.accuracy; if (qualified) x.qualified += 1;
       }
@@ -288,17 +306,24 @@ export class ResultsService implements OnModuleInit {
       const [chapter] = await this.resultsRepository.manager.query(`SELECT to_char(test_date, 'YYYY-MM-DD') AS d FROM chapters WHERE id = $1`, [chapterId]);
       if (chapter?.d && zonedNow().date <= chapter.d) return { rank: null, total: 0, best: null, pending_until: chapter.d };
     }
+    // Steno dictations rank on the percentage (then net speed), typing on net speed.
+    const percentOf = (r: Result) => {
+      const m = computeResultMetrics(r);
+      return m.percentBased ? m.accuracy : 0;
+    };
     // Reduce to one best row per student
     const bestByStudent = new Map<string, Result>();
     for (const r of rows) {
       const cur = bestByStudent.get(r.student_id);
       if (!cur) { bestByStudent.set(r.student_id, r); continue; }
       const better =
-        Number(r.nwpm) > Number(cur.nwpm) ||
-        (Number(r.nwpm) === Number(cur.nwpm) && Number(r.accuracy) > Number(cur.accuracy));
+        percentOf(r) > percentOf(cur) ||
+        (percentOf(r) === percentOf(cur) && (Number(r.nwpm) > Number(cur.nwpm) ||
+        (Number(r.nwpm) === Number(cur.nwpm) && Number(r.accuracy) > Number(cur.accuracy))));
       if (better) bestByStudent.set(r.student_id, r);
     }
     const ranked = Array.from(bestByStudent.values()).sort((a, b) => {
+      if (percentOf(b) !== percentOf(a)) return percentOf(b) - percentOf(a);
       if (Number(b.nwpm) !== Number(a.nwpm)) return Number(b.nwpm) - Number(a.nwpm);
       if (Number(b.accuracy) !== Number(a.accuracy)) return Number(b.accuracy) - Number(a.accuracy);
       return new Date(a.date_taken).getTime() - new Date(b.date_taken).getTime();
@@ -345,10 +370,10 @@ export class ResultsService implements OnModuleInit {
       .leftJoin('result.exam', 'exam').addSelect(['exam.id', 'exam.name'])
       .orderBy('result.id', 'ASC');
     // Never show results dated after today.
-    const endOfToday = new Date(); endOfToday.setHours(23, 59, 59, 999);
-    if (opts.from) { const start = new Date(opts.from); start.setHours(0, 0, 0, 0); qb.andWhere('result.date_taken >= :lbStart', { lbStart: start }); }
+    const endOfToday = zonedDayEnd(zonedDate(new Date()));
+    if (opts.from) qb.andWhere('result.date_taken >= :lbStart', { lbStart: zonedDayStart(opts.from) });
     let end = endOfToday;
-    if (opts.to) { end = new Date(opts.to); end.setHours(23, 59, 59, 999); if (end > endOfToday) end = endOfToday; }
+    if (opts.to) { end = zonedDayEnd(opts.to); if (end > endOfToday) end = endOfToday; }
     qb.andWhere('result.date_taken <= :lbEnd', { lbEnd: end });
     if (opts.testType === 'Live Test') qb.andWhere("chapter.test_type = 'Live Test'");
     else if (opts.testType === 'Pre-load Test') qb.andWhere("chapter.test_type <> 'Live Test'");
@@ -360,7 +385,9 @@ export class ResultsService implements OnModuleInit {
     if (opts.search) qb.andWhere('(user.name ILIKE :lbSearch OR user.user_id ILIKE :lbSearch OR user.roll_no ILIKE :lbSearch)', { lbSearch: `%${opts.search}%` });
 
     const best = new Map<string, any>();
-    const better = (a: any, b: any) => (a.nwpm !== b.nwpm ? a.nwpm > b.nwpm : a.accuracy !== b.accuracy ? a.accuracy > b.accuracy : new Date(a.date_taken) < new Date(b.date_taken));
+    // The Steno tab ranks on the percentage first; typing and mixed lists on net speed.
+    const byPercent = opts.kind === 'steno';
+    const better = (a: any, b: any) => (byPercent && a.accuracy !== b.accuracy ? a.accuracy > b.accuracy : a.nwpm !== b.nwpm ? a.nwpm > b.nwpm : a.accuracy !== b.accuracy ? a.accuracy > b.accuracy : new Date(a.date_taken) < new Date(b.date_taken));
     const examNames = new Set<string>();
     const BATCH = 500;
     for (let offset = 0; ; offset += BATCH) {
@@ -379,7 +406,7 @@ export class ResultsService implements OnModuleInit {
       }
       if (rows.length < BATCH) break;
     }
-    const ranked = [...best.values()].sort((a, b) => (b.nwpm - a.nwpm) || (b.accuracy - a.accuracy) || (new Date(a.date_taken).getTime() - new Date(b.date_taken).getTime()));
+    const ranked = [...best.values()].sort((a, b) => (byPercent ? b.accuracy - a.accuracy : 0) || (b.nwpm - a.nwpm) || (b.accuracy - a.accuracy) || (new Date(a.date_taken).getTime() - new Date(b.date_taken).getTime()));
     const n = ranked.length;
     const byCourse: Record<string, number> = {};
     ranked.forEach((r) => (r.category ? r.category.split(',').map((c: string) => c.trim()).filter(Boolean) : ['Not set']).forEach((c: string) => { byCourse[c] = (byCourse[c] || 0) + 1; }));
@@ -439,27 +466,18 @@ export class ResultsService implements OnModuleInit {
       // Admin date-range filter. `from`/`to` are YYYY-MM-DD; include the whole `to` day.
       // The leaderboard only shows data up to the current date, so a `to` in the
       // future is capped at the end of today.
-      const endOfToday = new Date();
-      endOfToday.setHours(23, 59, 59, 999);
-      if (from) {
-        const start = new Date(from);
-        start.setHours(0, 0, 0, 0);
-        qb.andWhere('result.date_taken >= :start', { start });
-      }
+      const endOfToday = zonedDayEnd(zonedDate(new Date()));
+      if (from) qb.andWhere('result.date_taken >= :start', { start: zonedDayStart(from) });
       let end = endOfToday;
       if (to) {
-        end = new Date(to);
-        end.setHours(23, 59, 59, 999);
+        end = zonedDayEnd(to);
         if (end > endOfToday) end = endOfToday;
       }
       qb.andWhere('result.date_taken <= :end', { end });
     } else if (period === 'today') {
       // Admin "Top Performer of the Day" — live, un-gated view of today's results.
-      const start = new Date();
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(start);
-      end.setDate(end.getDate() + 1);
-      qb.andWhere('result.date_taken >= :start AND result.date_taken < :end', { start, end });
+      const today = zonedDate(new Date());
+      qb.andWhere('result.date_taken >= :start AND result.date_taken <= :end', { start: zonedDayStart(today), end: zonedDayEnd(today) });
     } else {
       // Student-facing leaderboard: rankings are PUBLISHED in daily batches at the
       // admin-configured rank-update time (default 9:00 PM). Results recorded after
@@ -471,8 +489,7 @@ export class ResultsService implements OnModuleInit {
       // prior day's results would bleed into the current day's ranking and inflate the
       // participant count, so we constrain to [startOfPublishedDay, cutoff].
       const cutoff = await this.settingsService.getLiveRankPublishedCutoff();
-      const dayStart = new Date(cutoff);
-      dayStart.setHours(0, 0, 0, 0);
+      const dayStart = zonedDayStart(zonedDate(cutoff));
       qb.andWhere('result.date_taken >= :dayStart AND result.date_taken <= :cutoff', { dayStart, cutoff });
     }
 

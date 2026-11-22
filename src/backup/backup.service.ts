@@ -8,6 +8,7 @@ import { join, resolve, sep, relative } from 'path';
 import { Readable } from 'stream';
 import { SettingsService } from '../settings/settings.service';
 import { SETTING_KEYS } from '../entities/app_setting.entity';
+import { addDays, zonedDate, zonedNow, zonedToUtc } from '../common/zoned-time';
 
 // Backups: one .zip per backup with every public table as JSON lines plus the
 // uploaded files. Stored privately under ./private/backups (not served, not in
@@ -85,10 +86,11 @@ export class BackupService implements OnModuleInit, OnModuleDestroy {
   }
 
   private nextRun(time: string) {
+    // The backup time is India time, whatever time zone the server runs in.
     const [h, m] = time.split(':').map(Number);
-    const next = new Date();
-    next.setHours(h, m, 0, 0);
-    if (next <= new Date()) next.setDate(next.getDate() + 1);
+    const today = zonedDate(new Date());
+    let next = zonedToUtc(today, h * 60 + m);
+    if (next <= new Date()) next = zonedToUtc(addDays(today, 1), h * 60 + m);
     return next.toISOString();
   }
 
@@ -97,11 +99,10 @@ export class BackupService implements OnModuleInit, OnModuleDestroy {
   private async tick() {
     const s = await this.getSchedule();
     if (!s.enabled || this.running) return;
-    const now = new Date();
     const [h, m] = s.time.split(':').map(Number);
-    if (now.getHours() * 60 + now.getMinutes() < h * 60 + m) return;
-    const today = stamp(now).slice(0, 8);
-    if (this.list().some((b) => b.kind === 'scheduled' && b.name.slice(7, 15) === today)) return;
+    const { date: today, minutes } = zonedNow();
+    if (minutes < h * 60 + m) return;
+    if (this.list().some((b) => b.kind === 'scheduled' && zonedDate(b.created_at) === today)) return;
     await this.create('scheduled', null).catch((e) => this.logger.error(`Scheduled backup failed: ${e?.message}`));
   }
 

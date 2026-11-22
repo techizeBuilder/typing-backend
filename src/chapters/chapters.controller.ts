@@ -13,7 +13,7 @@ import { path as ffmpegPath } from '@ffmpeg-installer/ffmpeg';
 import type { Response } from 'express';
 import { ChaptersService } from './chapters.service';
 import { Chapter, FontGroup } from '../entities/chapter.entity';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { JwtAuthGuard, MediaAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles, RequirePermission } from '../auth/roles.decorator';
 import { UserRole } from '../entities/user.entity';
@@ -47,7 +47,9 @@ const audioStorage = diskStorage({
 export class ChaptersController {
   constructor(private readonly chaptersService: ChaptersService) {}
 
+  // Passages are institute content: signed-in users only.
   @Get()
+  @UseGuards(JwtAuthGuard)
   findAll(
     @Query('fontGroup') fontGroup: FontGroup,
     @Query('testType') testType: string,
@@ -96,6 +98,7 @@ export class ChaptersController {
 
   /** Stream steno audio file for a chapter — works through any proxy */
   @Get(':id/audio')
+  @UseGuards(MediaAuthGuard)
   async streamAudio(
     @Param('id') id: string,
     @Res({ passthrough: true }) res: Response,
