@@ -11,7 +11,8 @@ const BOOL_GROUPS = {
   candidate: ['photo', 'name', 'rollNo'],
 } as const;
 const COLOR_KEYS = ['headerBg', 'headerText', 'bodyBg', 'passageBg', 'typingBg', 'buttonBg', 'buttonText', 'border', 'submitBg', 'fontBtnBg', 'fontBtnText'] as const;
-const HEIGHTS = { header: [40, 140], passage: [100, 400], typing: [100, 400] } as const;
+// Points. (Layouts saved before heightUnit existed are in px; the app converts them.)
+const HEIGHTS = { header: [10, 250], passage: [10, 250], typing: [10, 250] } as const;
 const TEXTS = { topHeaderTitle: 100, mainTitle: 120, subTitle: 200 } as const;
 const CHOICES = {
   timerPosition: LAYOUT_POSITIONS,
@@ -57,6 +58,7 @@ export function sanitizeScreenLayout(raw: string): string {
   }
   if (input.heights !== undefined) {
     out.heights = {};
+    out.heightUnit = 'pt';
     for (const [k, [min, max]] of Object.entries(HEIGHTS)) {
       if (input.heights?.[k] === undefined) continue;
       const n = Number(input.heights[k]);

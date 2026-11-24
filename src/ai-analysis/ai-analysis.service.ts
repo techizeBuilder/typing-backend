@@ -2,8 +2,8 @@ import { Injectable, Logger, BadRequestException, ForbiddenException } from '@ne
 import { InjectRepository } from '@nestjs/typeorm';
 import { MoreThanOrEqual, Repository } from 'typeorm';
 import { createHash } from 'crypto';
-import Anthropic from '@anthropic-ai/sdk';
-import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
+import OpenAI from 'openai';
+import { zodTextFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
 import { AiAnalysis } from '../entities/ai-analysis.entity';
 import { Result } from '../entities/result.entity';
@@ -12,9 +12,11 @@ import { SettingsService } from '../settings/settings.service';
 import { SETTING_KEYS } from '../entities/app_setting.entity';
 import { zonedDate, zonedDayStart } from '../common/zoned-time';
 
-const MODEL = 'claude-opus-5-5';
+// Read lazily: ConfigModule loads the env files after module files are imported.
+const apiKey = () => (process.env.OPENAI_API_KEY || '').trim();
+const modelName = () => (process.env.OPENAI_MODEL || '').trim() || 'gpt-5.4-mini';
 
-// What Claude writes. Numbers, levels and charts are computed by the app; the
+// What the AI writes. Numbers, levels and charts are computed by the app; the
 // model only writes the coaching text.
 const AnalysisSchema = z.object({
   executive_summary: z.string(),
@@ -52,7 +54,7 @@ export interface AnalysisResponse {
 @Injectable()
 export class AiAnalysisService {
   private readonly logger = new Logger(AiAnalysisService.name);
-  private client: Anthropic | null = null;
+  private client: OpenAI | null = null;
 
   constructor(
     @InjectRepository(AiAnalysis) private readonly analyses: Repository<AiAnalysis>,
@@ -63,9 +65,10 @@ export class AiAnalysisService {
 
   private getClient() {
     // Only an explicit server key is used, so the feature stays off until the
-    // institute adds ANTHROPIC_API_KEY to the backend .env.
-    if (!process.env.ANTHROPIC_API_KEY) return null;
-    this.client = this.client || new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 90_000, maxRetries: 2 });
+    // institute adds OPENAI_API_KEY to the backend .env.secrets.
+    const key = apiKey();
+    if (!key) return null;
+    this.client = this.client || new OpenAI({ apiKey: key, timeout: 50_000, maxRetries: 1 });
     return this.client;
   }
 
@@ -74,7 +77,7 @@ export class AiAnalysisService {
     const enabled = all[SETTING_KEYS.AI_ANALYSIS_ENABLED] !== 'false';
     const limit = parseInt(all[SETTING_KEYS.AI_DAILY_LIMIT], 10) || 5;
     const used = await this.usedToday(userId);
-    return { enabled, configured: !!process.env.ANTHROPIC_API_KEY, daily_limit: limit, used_today: used };
+    return { enabled, configured: !!apiKey(), daily_limit: limit, used_today: used };
   }
 
   private async usedToday(userId: string) {
@@ -132,29 +135,29 @@ export class AiAnalysisService {
     const history = (recent as any[]).map((r) => ({ date: String(r.date_taken || '').slice(0, 10), mode: r.mode, net_wpm: Number(r.nwpm) || 0, accuracy_pct: Number(r.accuracy) || 0 }));
 
     try {
-      const response = await client.beta.messages.parse({
-        model: MODEL,
-        max_tokens: 16000,
-        betas: ['server-side-fallback-2026-07-01'],
-        fallbacks: 'default',
-        output_config: { effort: 'low', format: betaZodOutputFormat(AnalysisSchema) },
-        system: SYSTEM,
-        messages: [{ role: 'user', content: JSON.stringify({ result: input, recent_results: history }) }],
+      const response = await client.responses.parse({
+        model: modelName(),
+        max_output_tokens: 8000,
+        store: false,
+        text: { format: zodTextFormat(AnalysisSchema, 'analysis') },
+        instructions: SYSTEM,
+        input: JSON.stringify({ result: input, recent_results: history }),
       });
-      if (response.stop_reason === 'refusal' || !response.parsed_output) {
-        this.logger.warn(`AI analysis not produced (stop_reason=${response.stop_reason}).`);
+      if (!response.output_parsed) {
+        this.logger.warn(`AI analysis not produced (status=${response.status}, reason=${response.incomplete_details?.reason || 'refusal'}).`);
         return { source: 'unavailable', reason: 'error' };
       }
-      const analysis = response.parsed_output;
+      const analysis = response.output_parsed;
       await this.analyses.createQueryBuilder().insert().values({
         student_id: userId, input_hash: hash, content: analysis as any, model: response.model,
         input_tokens: response.usage?.input_tokens || 0, output_tokens: response.usage?.output_tokens || 0,
       }).orIgnore().execute();
       return { source: 'ai', analysis, cached: false, remaining_today: Math.max(0, st.daily_limit - st.used_today - 1) };
     } catch (err) {
-      if (err instanceof Anthropic.AuthenticationError) this.logger.error('AI analysis: ANTHROPIC_API_KEY was rejected.');
-      else if (err instanceof Anthropic.RateLimitError) this.logger.warn('AI analysis: rate limited by the API.');
-      else if (err instanceof Anthropic.APIError) this.logger.error(`AI analysis API error ${err.status}: ${err.message}`);
+      if (err instanceof OpenAI.AuthenticationError) this.logger.error('AI analysis: OPENAI_API_KEY was rejected.');
+      else if (err instanceof OpenAI.RateLimitError && (err.type === 'insufficient_quota' || err.code === 'insufficient_quota')) this.logger.error('AI analysis: the OpenAI account has no credits left; add credits in OpenAI billing.');
+      else if (err instanceof OpenAI.RateLimitError) this.logger.warn('AI analysis: rate limited by the API.');
+      else if (err instanceof OpenAI.APIError) this.logger.error(`AI analysis API error ${err.status}: ${err.message}`);
       else this.logger.error(`AI analysis failed: ${(err as Error)?.message}`);
       return { source: 'unavailable', reason: 'error' };
     }
@@ -169,6 +172,6 @@ export class AiAnalysisService {
       .getRawOne();
     const start = zonedDayStart(`${zonedDate(new Date()).slice(0, 8)}01`);
     const month = await this.analyses.count({ where: { created_at: MoreThanOrEqual(start) } });
-    return { total: Number(rows?.count || 0), this_month: month, input_tokens: Number(rows?.input_tokens || 0), output_tokens: Number(rows?.output_tokens || 0), model: MODEL, configured: !!process.env.ANTHROPIC_API_KEY };
+    return { total: Number(rows?.count || 0), this_month: month, input_tokens: Number(rows?.input_tokens || 0), output_tokens: Number(rows?.output_tokens || 0), model: modelName(), configured: !!apiKey() };
   }
 }

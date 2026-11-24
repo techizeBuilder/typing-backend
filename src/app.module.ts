@@ -59,6 +59,8 @@ const AppDataSource = new DataSource({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      // .env is tracked by git, so API keys live in the gitignored .env.secrets.
+      envFilePath: ['.env.secrets', '.env'],
     }),
     TypeOrmModule.forRoot({
       type: 'postgres',

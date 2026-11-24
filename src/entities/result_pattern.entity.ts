@@ -136,6 +136,70 @@ export class ResultPattern {
   @Column({ type: 'varchar', length: 10, default: 'none' })
   transposition_mistake: string;
 
+  // ── Penalty & Calculation Settings. Null = not set on this (older) pattern: the
+  // scoring formula then behaves exactly as it did before these existed.
+  @Column({ type: 'varchar', length: 8, default: 'WPM' })
+  speed_unit: string; // WPM | KDPH (unit of required_speed)
+
+  @Column({ type: 'float', default: 5 })
+  strokes_per_word: number;
+
+  // typed_words | total_words | typed_strokes | total_strokes | speed (net ÷ gross)
+  @Column({ type: 'varchar', length: 16, default: 'speed' })
+  accuracy_on: string;
+
+  @Column({ type: 'boolean', nullable: true })
+  words_penalty_enabled: boolean | null;
+
+  @Column({ type: 'float', nullable: true })
+  words_penalty: number | null;
+
+  @Column({ type: 'boolean', nullable: true })
+  strokes_penalty_enabled: boolean | null;
+
+  @Column({ type: 'float', nullable: true })
+  strokes_penalty: number | null;
+
+  @Column({ type: 'boolean', nullable: true })
+  speed_penalty_enabled: boolean | null;
+
+  @Column({ type: 'float', nullable: true })
+  speed_penalty: number | null;
+
+  @Column({ type: 'float', nullable: true })
+  full_mistake_weight: number | null;
+
+  @Column({ type: 'float', nullable: true })
+  half_mistake_weight: number | null;
+
+  @Column({ type: 'float', nullable: true })
+  extra_word_weight: number | null;
+
+  @Column({ type: 'float', nullable: true })
+  missing_word_weight: number | null;
+
+  @Column({ type: 'float', nullable: true })
+  extra_space_weight: number | null;
+
+  @Column({ type: 'float', nullable: true })
+  punctuation_weight: number | null;
+
+  @Column({ type: 'float', default: 1 })
+  mistakes_multiply: number;
+
+  @Column({ default: false })
+  marks_right_words_enabled: boolean;
+
+  @Column({ type: 'float', default: 0 })
+  marks_per_right_word: number;
+
+  @Column({ default: false })
+  marks_net_wpm_enabled: boolean;
+
+  // [{ from, to, marks }] in net WPM
+  @Column({ type: 'jsonb', nullable: true })
+  marks_ranges: { from: number; to: number; marks: number }[] | null;
+
   @CreateDateColumn()
   created_at: Date;
 

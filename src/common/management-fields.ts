@@ -53,8 +53,59 @@ export function cleanExamInfo(d: any) {
   text(d, 'mistake_policy', 200, 'Mistake policy');
   text(d, 'exam_level', 150, 'Exam level');
   text(d, 'card_tags', 300, 'Card tags');
+  cleanExamRules(d);
   bool(d, 'is_pro_level');
   bool(d, 'is_active');
+}
+
+// Multipart forms send objects as JSON strings; '' or null clears the field.
+const json = (d: any, key: string, label: string) => {
+  if (d[key] === undefined) return;
+  let v = d[key];
+  if (typeof v === 'string') {
+    try { v = v.trim() === '' ? null : JSON.parse(v); } catch { throw new BadRequestException(`${label} is not valid.`); }
+  }
+  if (v !== null && (typeof v !== 'object' || Array.isArray(v))) throw new BadRequestException(`${label} is not valid.`);
+  d[key] = v;
+};
+export const RESULT_COMPONENT_KEYS = [
+  'show_test_words', 'show_total_words', 'show_test_strokes', 'show_total_strokes', 'show_correct_words', 'show_correct_strokes',
+  'show_gross_speed', 'show_net_speed', 'show_kdph', 'show_accuracy', 'show_full_mistakes', 'show_half_mistakes', 'show_total_errors',
+  'show_backspace_count', 'show_ignorable_mistakes', 'show_marks', 'show_rank',
+];
+
+export function cleanExamRules(d: any) {
+  if (!d) return;
+  json(d, 'language_rules', 'Passing criteria');
+  if (d.language_rules) {
+    const out: any = {};
+    for (const [lang, label] of [['english', 'English'], ['hindi', 'Hindi']]) {
+      const r = d.language_rules[lang];
+      if (!r) continue;
+      const n = (key: string, min: number, max: number, name: string, whole = false) => {
+        const v = r[key] === '' || r[key] === null || r[key] === undefined ? NaN : Number(r[key]);
+        if (!Number.isFinite(v) || v < min || v > max || (whole && !Number.isInteger(v))) {
+          throw new BadRequestException(`${label}: ${name} must be a ${whole ? 'whole ' : ''}number from ${min} to ${max}.`);
+        }
+        return v;
+      };
+      const enabled = r.enabled === true || r.enabled === 'true';
+      const rule: any = { enabled, min: n('min', 0, 1000000, 'Minimum Words / Strokes', true), max: n('max', 0, 1000000, 'Maximum Words / Strokes', true) };
+      if (rule.max > 0 && rule.min > 0 && rule.max <= rule.min) throw new BadRequestException(`${label}: Maximum Words / Strokes must be greater than Minimum.`);
+      if (!['NWPM', 'GWPM'].includes(r.qualify_on ?? 'NWPM')) throw new BadRequestException(`${label}: Result Mode is not valid.`);
+      rule.qualify_on = r.qualify_on ?? 'NWPM';
+      rule.required_speed = enabled ? n('required_speed', 0, 60000, 'Minimum Qualifying Speed') : Number(r.required_speed) || 0;
+      rule.required_accuracy = enabled ? n('required_accuracy', 0, 100, 'Minimum Accuracy') : Number(r.required_accuracy) || 0;
+      out[lang] = rule;
+    }
+    d.language_rules = out;
+  }
+  json(d, 'result_components', 'Result components');
+  if (d.result_components) {
+    d.result_components = Object.fromEntries(RESULT_COMPONENT_KEYS.map((k) => [k, d.result_components[k] !== false]));
+  }
+  if (d.test_format !== undefined && !['formatting', 'normal'].includes(d.test_format)) throw new BadRequestException('Test format must be formatting or normal.');
+  text(d, 'instructions_text', 20000, 'Instructions');
 }
 
 export function cleanChapterInfo(d: any) {

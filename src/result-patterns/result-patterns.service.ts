@@ -13,7 +13,12 @@ const numberIn = (data: any, key: string, min: number, max: number, label: strin
   if (!Number.isFinite(n) || n < min || n > max) throw new BadRequestException(`${label} must be a number from ${min} to ${max}.`);
   data[key] = n;
 };
-const SCORING_FLAGS = ['half_mistake_enabled', 'count_right_words_only', 'count_omissions_as_errors', 'ignorable_mistakes_enabled'];
+const OPTIONAL_NUMBERS = [
+  ['words_penalty', 'Words Penalty'], ['strokes_penalty', 'Strokes Penalty'], ['speed_penalty', 'Speed Penalty'],
+  ['full_mistake_weight', 'Full Mistake Penalty'], ['half_mistake_weight', 'Half Mistake Penalty'], ['extra_word_weight', 'Extra Words Penalty'],
+  ['missing_word_weight', 'Missing Words Penalty'], ['extra_space_weight', 'Extra Space Penalty'], ['punctuation_weight', 'Punctuation Penalty'],
+];
+const SCORING_FLAGS = ['marks_right_words_enabled', 'marks_net_wpm_enabled', 'half_mistake_enabled', 'count_right_words_only', 'count_omissions_as_errors', 'ignorable_mistakes_enabled'];
 
 // Validates every field that changes a score, so a pattern can never produce an
 // impossible result (negative penalty, accuracy over 100, unknown speed unit…).
@@ -29,7 +34,30 @@ export function cleanScoring(data: any, partial: boolean) {
   oneOf(data, 'penalty_type', ['Word', 'Stroke'], 'Penalty');
   oneOf(data, 'transposition_mistake', ['none', 'half', 'full'], 'Transposition');
   numberIn(data, 'penalty_value', 0, 100, 'How Much Penalty');
-  numberIn(data, 'required_speed', 0, 500, 'Qualifying Speed');
+  oneOf(data, 'speed_unit', ['WPM', 'KDPH'], 'Unit');
+  oneOf(data, 'accuracy_on', ['speed', 'typed_words', 'total_words', 'typed_strokes', 'total_strokes'], 'Accuracy ON');
+  numberIn(data, 'required_speed', 0, data.speed_unit === 'KDPH' ? 60000 : 500, 'Qualifying Speed');
+  numberIn(data, 'strokes_per_word', 1, 20, 'Strokes Per Word');
+  numberIn(data, 'mistakes_multiply', 0, 100, 'Mistakes Multiply');
+  numberIn(data, 'marks_per_right_word', 0, 100, 'Marks On Right Words');
+  for (const [k, label] of OPTIONAL_NUMBERS) if (data[k] !== null) numberIn(data, k, 0, 100, label);
+  for (const k of ['words_penalty_enabled', 'strokes_penalty_enabled', 'speed_penalty_enabled']) {
+    if (data[k] !== undefined && data[k] !== null) data[k] = data[k] === true || data[k] === 'true';
+  }
+  if (data.marks_ranges !== undefined && data.marks_ranges !== null) {
+    if (!Array.isArray(data.marks_ranges) || data.marks_ranges.length > 50) throw new BadRequestException('Marks ranges are not valid.');
+    const ranges = data.marks_ranges.map((r: any) => {
+      const row = { from: r?.from, to: r?.to, marks: r?.marks };
+      numberIn(row, 'from', 0, 500, 'Marks speed range');
+      numberIn(row, 'to', 0, 500, 'Marks speed range');
+      numberIn(row, 'marks', 0, 1000, 'Marks');
+      if ([row.from, row.to, row.marks].some((v) => v === undefined || v === null)) throw new BadRequestException('Fill in every marks range.');
+      if (row.to < row.from) throw new BadRequestException('A marks speed range must go from the lower to the higher speed.');
+      return row;
+    }).sort((a: any, b: any) => a.from - b.from);
+    for (let i = 1; i < ranges.length; i++) if (ranges[i].from <= ranges[i - 1].to) throw new BadRequestException('Marks speed ranges must not overlap.');
+    data.marks_ranges = ranges;
+  }
   numberIn(data, 'required_accuracy', 0, 100, 'Qualifying Accuracy');
   numberIn(data, 'ignorable_mistakes_percent', 0, 100, 'Ignorable Allowance');
   numberIn(data, 'ignorable_penalty_words_per_mistake', 0, 100, 'Words Deducted per Excess Mistake');

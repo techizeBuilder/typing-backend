@@ -60,6 +60,9 @@ export function computeResultMetrics(r) {
       originalWords: referenceWords.filter(Boolean).length,
       transpositions: Number(pattern?.transpositions) || 0,
       trailingOmissions: Number(pattern?.trailing_omissions) || 0,
+      missingWords: Number(pattern?.omitted_words) || 0,
+      extraWords: Number(pattern?.added_words) || 0,
+      punctuation: Number(pattern?.punctuation_mistakes) || 0,
     });
   } else {
     const c = typingMistakeCounts({ referenceWords, wordStatuses, userInput, pattern });
@@ -72,6 +75,9 @@ export function computeResultMetrics(r) {
       correctWords: c.correctWords,
       correctStrokes: c.correctStrokes,
       timeElapsed,
+      originalWords: referenceWords.length,
+      testStrokes: referenceWords.join(' ').length,
+      ...c.kinds,
     });
   }
 
@@ -105,12 +111,13 @@ export function typingMistakeCounts({ referenceWords, wordStatuses, userInput = 
   const extraSpaceCount = (userInput.match(/ {2,}/g) || []).length;
   const countOmissions = pattern?.count_omissions_as_errors ?? true;
 
-  let spelling = 0, omissions = 0, halfCount = 0, correctWords = 0, correctStrokes = 0;
+  let uncountedWords = 0, spelling = 0, omissions = 0, halfCount = 0, correctWords = 0, correctStrokes = 0;
   referenceWords.forEach((word, i) => {
     const s = wordStatuses[i] || 'pending';
     if (s === 'error') spelling++;
     else if (s === 'pending') {
       if (i <= lastTyped || countOmissions) omissions++;
+      else uncountedWords++;
     } else if (s === 'half-error') halfCount++;
     else if (s === 'correct') { correctWords++; correctStrokes += String(word).length + 1; }
   });
@@ -120,5 +127,11 @@ export function typingMistakeCounts({ referenceWords, wordStatuses, userInput = 
     fullErrors: spelling + omissions + addCount + repeatedWordCount,
     halfErrors: halfCount + extraSpaceCount,
     correctWords, correctStrokes,
+    // For patterns that weigh kinds of mistakes differently (see scoring.js). The
+    // engine saves how many half mistakes were punctuation.
+    kinds: {
+      extraWords: addCount + repeatedWordCount, missingWords: omissions, extraSpaces: extraSpaceCount,
+      punctuation: Math.min(halfCount, Number(pattern?.punctuation_mistakes) || 0), uncountedWords,
+    },
   };
 }

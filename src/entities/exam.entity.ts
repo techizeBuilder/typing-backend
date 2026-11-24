@@ -106,6 +106,24 @@ export class Exam {
   @Column({ default: false })
   is_pro_level: boolean;
 
+  // Passing criteria and word/stroke limits per language. Null = the Result Pattern's
+  // criteria and the limits below. { english|hindi: { enabled, qualify_on,
+  // required_speed, required_accuracy, min, max } }
+  @Column({ type: 'jsonb', nullable: true })
+  language_rules: Record<string, any> | null;
+
+  // Which result components students see. Null = the Result Pattern's show_* flags.
+  @Column({ type: 'jsonb', nullable: true })
+  result_components: Record<string, boolean> | null;
+
+  // formatting = passage shows its tabs and line breaks; normal = one running text
+  @Column({ type: 'varchar', length: 12, default: 'formatting' })
+  test_format: string;
+
+  // Instructions ("Exam Rule") uploaded as TXT; a PDF is kept in rules_pdf_url
+  @Column({ type: 'text', nullable: true })
+  instructions_text: string | null;
+
   // Inactive exams are hidden from students without deleting them or their results
   @Column({ default: true })
   is_active: boolean;

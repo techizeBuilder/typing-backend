@@ -52,3 +52,6 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # Server-only data: PDF magazines, backups, login signing key (served only through access-checked routes)
 /private
+
+# Local secrets (API keys) - never commit
+.env.secrets
